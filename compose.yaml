@@ -1,0 +1,17 @@
+services:
+  api:
+    build: .
+    container_name: pixelwars_api
+    restart: unless-stopped
+    ports:
+      - "8000:8000"
+    environment:
+      API_VERSION: '${API_VERSION}'
+    volumes:
+      - ./app:/app/app
+    develop:
+      watch:
+        - action: rebuild
+          path: pyproject.toml
+        - action: rebuild
+          path: uv.lock

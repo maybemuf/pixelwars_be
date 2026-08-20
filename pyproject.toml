@@ -1,7 +1,36 @@
 [project]
-name = "pixelwars"
+name = "pixelwars_server"
 version = "0.1.0"
-description = "Add your description here"
+description = "Python FastAPI backend for pixelwars"
 readme = "README.md"
 requires-python = ">=3.13"
-dependencies = []
+dependencies = [
+    "fastapi[standard]>=0.140.2",
+]
+
+[dependency-groups]
+dev = [
+    "pytest>=9.1.1",
+    "ruff>=0.9.0",
+]
+
+[tool.setuptools]
+packages = ["app"]
+
+[tool.fastapi]
+entrypoint = "app.main:app"
+
+[tool.pytest.ini_options]
+# tests import `app.*`; the repo root isn't on sys.path by default
+pythonpath = ["."]
+
+[tool.ruff]
+target-version = "py313"
+line-length = 120
+# leave auto-generated migrations alone
+extend-exclude = ["alembic/versions", "app/*/__init__.py"]
+
+[tool.ruff.lint]
+# E/F — pyflakes+pycodestyle, I — isort, UP — pyupgrade, B — bugbear
+select = ["E", "F", "I", "UP", "B"]
+# catches dead imports such as `from sqlalchemy.orm import state`
