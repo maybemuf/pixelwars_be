@@ -5,10 +5,12 @@ class Settings(BaseSettings):
     model_config = SettingsConfigDict(
         env_file=".env",
         env_file_encoding="utf-8",
-        secrets_dir="/run/secrets",
         extra="ignore",
     )
 
     API_VERSION: str
+    GOOGLE_OAUTH_CLIENT_ID: str
+    GOOGLE_OAUTH_CLIENT_SECRET: str
+    SESSION_SECRET: str
 
 settings = Settings()

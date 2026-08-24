@@ -7,6 +7,8 @@ services:
       - "8000:8000"
     environment:
       API_VERSION: '${API_VERSION}'
+      GOOGLE_OAUTH_CLIENT_ID: '${GOOGLE_OAUTH_CLIENT_ID}'
+      GOOGLE_OAUTH_CLIENT_SECRET: '${GOOGLE_OAUTH_CLIENT_SECRET}'
     volumes:
       - ./app:/app/app
     develop:
