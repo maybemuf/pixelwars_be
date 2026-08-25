@@ -12,5 +12,7 @@ class Settings(BaseSettings):
     GOOGLE_OAUTH_CLIENT_ID: str
     GOOGLE_OAUTH_CLIENT_SECRET: str
     SESSION_SECRET: str
+    REDIS_HOST: str
+    REDIS_PORT: int
 
 settings = Settings()
