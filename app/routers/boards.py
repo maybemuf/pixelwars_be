@@ -1,10 +1,11 @@
-from fastapi import APIRouter, Request
+from fastapi import APIRouter
 
-router = APIRouter(
-    prefix="/boards",
-    tags=["boards"]
-)
+from app.deps import UserDep
+
+router = APIRouter(prefix="/boards", tags=["boards"])
+
 
 @router.get("/")
-async def get_boards(request: Request):
-    return "Hello! Theses are our boards 🛹"
+async def get_boards(user: UserDep):
+
+    return f"Hello {user.name}! Theses are our boards 🛹"

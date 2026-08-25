@@ -11,8 +11,7 @@ app = FastAPI(title="PixelWars API", version=settings.API_VERSION)
 app.add_middleware(
     SessionMiddleware,
     secret_key=settings.SESSION_SECRET,
-    same_site="lax",
-    max_age=60 * 60 * 24 * 14,  # 14 days
+    session_cookie="oauth_state",
 )
 
 app.include_router(auth)
