@@ -31,5 +31,15 @@ services:
         - action: rebuild
           path: uv.lock
 
+  frontend:
+    build: ./frontend
+    container_name: pixelwars_frontend
+    depends_on:
+      api:
+        condition: service_started
+    restart: unless-stopped
+    ports:
+      - "3000:80"
+
 volumes:
   redis_data:

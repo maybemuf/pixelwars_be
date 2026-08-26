@@ -1,11 +1,13 @@
 from fastapi import APIRouter
 
-from app.deps import UserDep
+from app.deps import RedisDep
 
-router = APIRouter(prefix="/boards", tags=["boards"])
-
+router = APIRouter(
+    prefix="/boards",
+    tags=["boards"],
+)
 
 @router.get("/")
-async def get_boards(user: UserDep):
-
-    return f"Hello {user.name}! Theses are our boards 🛹"
+async def get_board(redis: RedisDep):
+    bytes = await redis.get("board:1")
+    return bytes
