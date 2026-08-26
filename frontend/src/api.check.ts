@@ -14,7 +14,8 @@ import {
 } from "./board.ts";
 import { getBoard } from "./api.ts";
 
-const NUL = String.fromCharCode(0);
+/** Base64 of `bytes`, the way the API sends the board. */
+const b64 = (bytes: number[]) => Buffer.from(bytes).toString("base64");
 
 const reply = (body: unknown, status = 200) => {
   globalThis.fetch = (async () => new Response(JSON.stringify(body), { status })) as typeof fetch;
@@ -24,7 +25,7 @@ reply(null);
 assert.equal(await getBoard(), null, "missing key -> null");
 
 // What redis holds today: an all-zero buffer with one trailing byte.
-reply(NUL.repeat(BOARD_BYTES + 1));
+reply(b64(new Array(BOARD_BYTES + 1).fill(0)));
 const board = await getBoard();
 assert.ok(board, "empty buffer decodes");
 assert.equal(board.pixels.length, WIDTH * HEIGHT, "one palette index per pixel");
@@ -33,15 +34,12 @@ assert.ok(
   "all pixels are palette 0",
 );
 
-// Two nibbles per byte, high nibble first. U+00E9 is the two bytes C3 A9,
-// so the first four pixels must read C, 3, A, 9.
-const pair = decodeBoard(String.fromCharCode(0xe9) + NUL.repeat(BOARD_BYTES - 2));
+// Two nibbles per byte, high nibble first. Bytes >= 0x80 must survive the
+// round trip -- they are exactly what the old UTF-8 transport could not carry.
+const pair = decodeBoard(b64([0xc3, 0xa9, ...new Array(BOARD_BYTES - 2).fill(0)]));
 assert.deepEqual([...pair.pixels.slice(0, 4)], [0xc, 0x3, 0xa, 0x9], "high nibble first");
 
-assert.throws(() => decodeBoard(NUL), /expected at least/, "short buffer rejected");
-
-reply(null, 500);
-await assert.rejects(getBoard, /could not serialise/, "500 explains the backend cause");
+assert.throws(() => decodeBoard(b64([0])), /expected at least/, "short buffer rejected");
 
 reply(null, 404);
 await assert.rejects(getBoard, /failed \(404\)/, "other errors surfaced");

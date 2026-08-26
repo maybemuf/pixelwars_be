@@ -16,13 +16,10 @@ export const PALETTE = [
 
 export type Board = { width: number; height: number; pixels: Uint8Array };
 
-/**
- * The API hands us `bytes` from redis, which pydantic serialises by decoding
- * it as UTF-8 into a JSON string. Re-encoding that string recovers the exact
- * original bytes.
- */
+/** The API base64-encodes the raw redis buffer; `atob` gives the bytes back. */
 export function decodeBoard(raw: string): Board {
-  const buf = new TextEncoder().encode(raw);
+  const bin = atob(raw);
+  const buf = Uint8Array.from(bin, (c) => c.charCodeAt(0));
   if (buf.length < BOARD_BYTES) {
     throw new Error(`Board is ${buf.length} bytes, expected at least ${BOARD_BYTES}`);
   }

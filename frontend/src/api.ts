@@ -5,14 +5,6 @@ export type { Board };
 export async function getBoard(): Promise<Board | null> {
   const res = await fetch("/boards/");
 
-  // The endpoint 500s once the buffer holds a byte that is not valid UTF-8,
-  // because it returns raw redis `bytes` that pydantic decodes as UTF-8.
-  if (res.status === 500) {
-    throw new Error(
-      "The API could not serialise the board. GET /boards/ returns raw bytes, " +
-        "which only survives JSON encoding while the buffer is all zeros.",
-    );
-  }
   if (!res.ok) throw new Error(`Board request failed (${res.status})`);
 
   const raw = (await res.json()) as string | null;
