@@ -3,7 +3,7 @@ import { useEffect, useState } from "react";
 import { getBoard, isSignedIn, signIn, signOut, type Board } from "./api.ts";
 import { PALETTE } from "./board.ts";
 import BoardView from "./BoardView.tsx";
-import { placePixel, socket } from "./socket.ts";
+import { onUsers, placePixel, socket } from "./socket.ts";
 
 export default function App() {
   const [board, setBoard] = useState<Board | null>(null);
@@ -11,6 +11,7 @@ export default function App() {
   const [loading, setLoading] = useState(true);
   const [signedIn, setSignedIn] = useState(isSignedIn);
   const [live, setLive] = useState(false);
+  const [users, setUsers] = useState<number | null>(null);
   const [color, setColor] = useState(5);
   const [notice, setNotice] = useState<string | null>(null);
 
@@ -24,14 +25,20 @@ export default function App() {
   // Anyone opening the board joins the live feed; no auth for reading.
   useEffect(() => {
     const on = () => setLive(true);
-    const off = () => setLive(false);
+    // While offline the last count is a lie — the room moved on without us.
+    const off = () => {
+      setLive(false);
+      setUsers(null);
+    };
     socket.on("connect", on);
     socket.on("disconnect", off);
+    const offUsers = onUsers(setUsers);
     socket.connect();
 
     return () => {
       socket.off("connect", on);
       socket.off("disconnect", off);
+      offUsers();
       socket.disconnect();
     };
   }, []);
@@ -48,6 +55,11 @@ export default function App() {
             title={live ? "Live" : "Reconnecting…"}
             className={`h-2 w-2 rounded-full ${live ? "bg-emerald-400" : "bg-slate-600"}`}
           />
+          {users !== null && (
+            <span className="text-sm font-normal text-slate-400">
+              {users} {users === 1 ? "person" : "people"} here
+            </span>
+          )}
         </h1>
         {signedIn ? (
           <button

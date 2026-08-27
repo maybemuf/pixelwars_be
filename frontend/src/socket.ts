@@ -22,6 +22,15 @@ export function onPixels(handler: (pixels: PixelEvent[]) => void) {
   };
 }
 
+/** Live count of clients watching the board; server pushes it on every join/leave. */
+export function onUsers(handler: (count: number) => void) {
+  const fn = (data: { count: number }) => handler(data.count);
+  socket.on("users", fn);
+  return () => {
+    socket.off("users", fn);
+  };
+}
+
 /** Ask the server to paint. It validates the session and echoes a `pixel`. */
 export function placePixel(pixel: PixelEvent, onAck?: (ack: PlaceAck) => void) {
   socket.emit("place_pixel", pixel, onAck ?? (() => {}));
