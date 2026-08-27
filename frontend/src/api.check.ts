@@ -88,3 +88,35 @@ assert.equal(applyPixel(live, 0, 1.5), null, "non-integer colour rejected");
 assert.equal(live.pixels[0], 0, "rejected writes leave the grid alone");
 
 console.log("live-update checks passed");
+
+// Pixels that arrive before the canvas subscribes (HTTP board still in flight)
+// must be replayed, not dropped. socket.ts is imported late so the relative
+// namespace URL has a location to resolve against under node.
+(globalThis as { location?: unknown }).location = { protocol: "http:", host: "localhost", port: "80" };
+const { socket, onPixels } = await import("./socket.ts");
+const feed = socket.listeners("pixel")[0] as (data: unknown) => void;
+
+feed({ offset: 1, color: 2 }); // nobody listening yet -> buffered
+feed([{ offset: 3, color: 4 }]);
+const seen: { offset: number; color: number }[] = [];
+const stop = onPixels((batch) => seen.push(...batch));
+assert.deepEqual(
+  seen,
+  [
+    { offset: 1, color: 2 },
+    { offset: 3, color: 4 },
+  ],
+  "buffered writes replayed in order",
+);
+
+feed({ offset: 5, color: 6 });
+assert.equal(seen.length, 3, "later writes stream straight through");
+
+stop();
+feed({ offset: 7, color: 8 }); // between mounts -> buffered again
+assert.equal(seen.length, 3, "unsubscribed handler stops receiving");
+const later: { offset: number; color: number }[] = [];
+onPixels((batch) => later.push(...batch));
+assert.deepEqual(later, [{ offset: 7, color: 8 }], "gap between subscribers is replayed too");
+
+console.log("pixel-buffer checks passed");

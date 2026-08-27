@@ -15,16 +15,23 @@ export default function App() {
   const [color, setColor] = useState(5);
   const [notice, setNotice] = useState<string | null>(null);
 
+  // Anyone opening the board joins the live feed; no auth for reading. Connect
+  // BEFORE fetching: writes that land while the snapshot is in flight are
+  // buffered by the socket layer and replayed onto it, so none are lost.
   useEffect(() => {
-    getBoard()
-      .then(setBoard)
-      .catch((e: Error) => setError(e.message))
-      .finally(() => setLoading(false));
-  }, []);
+    const load = () =>
+      getBoard()
+        .then(setBoard)
+        .catch((e: Error) => setError(e.message))
+        .finally(() => setLoading(false));
 
-  // Anyone opening the board joins the live feed; no auth for reading.
-  useEffect(() => {
-    const on = () => setLive(true);
+    // Every (re)connect refetches: a dropped connection means missed writes.
+    const on = () => {
+      setLive(true);
+      load();
+    };
+    // A dead socket must not leave a blank page; show a read-only board.
+    socket.once("connect_error", load);
     // While offline the last count is a lie — the room moved on without us.
     const off = () => {
       setLive(false);
@@ -39,6 +46,7 @@ export default function App() {
       socket.off("connect", on);
       socket.off("disconnect", off);
       offUsers();
+      socket.off("connect_error", load);
       socket.disconnect();
     };
   }, []);

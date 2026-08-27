@@ -13,12 +13,30 @@ export type PlaceAck = { error?: string } | undefined;
  */
 export const socket = io("/boards", { path: "/socket.io", withCredentials: true, autoConnect: false });
 
-/** Subscribe to live writes. Server may send one pixel or a batch. */
+/**
+ * Writes that landed with nobody listening: the HTTP board is still in flight,
+ * or the canvas is between mounts. Held here and replayed to the next
+ * subscriber so those pixels end up on the board instead of lost. Ordering is
+ * preserved, so replaying a write the snapshot already contains is harmless.
+ */
+let sink: ((pixels: PixelEvent[]) => void) | null = null;
+let pending: PixelEvent[] = [];
+
+socket.on("pixel", (data: PixelEvent | PixelEvent[]) => {
+  const batch = Array.isArray(data) ? data : [data];
+  if (sink) sink(batch);
+  else pending.push(...batch);
+});
+
+/** Subscribe to live writes, replaying anything buffered. Single subscriber. */
 export function onPixels(handler: (pixels: PixelEvent[]) => void) {
-  const fn = (data: PixelEvent | PixelEvent[]) => handler(Array.isArray(data) ? data : [data]);
-  socket.on("pixel", fn);
+  sink = handler;
+  if (pending.length) {
+    handler(pending);
+    pending = [];
+  }
   return () => {
-    socket.off("pixel", fn);
+    if (sink === handler) sink = null;
   };
 }
 
