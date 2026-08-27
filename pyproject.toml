@@ -8,6 +8,7 @@ dependencies = [
     "authlib>=1.7.2",
     "fastapi[standard]>=0.140.2",
     "itsdangerous>=2.2.0",
+    "python-socketio[asgi]>=5.16.4",
     "redis>=8.1.0",
 ]
 

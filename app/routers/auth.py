@@ -3,6 +3,7 @@ import secrets
 from authlib.integrations.base_client import OAuthError
 from authlib.integrations.starlette_client import OAuth
 from fastapi import APIRouter, Cookie, HTTPException, Request, Response
+from fastapi.responses import RedirectResponse
 
 from app.core import settings
 from app.deps.redis import RedisDep
@@ -26,8 +27,11 @@ async def login_via_google(request: Request):
     return await oauth.google.authorize_redirect(request, redirect_uri)
 
 
-@router.post("/google/callback")
-async def authorize_google(request: Request, response: Response, redis: RedisDep):
+@router.get("/google/callback")
+async def authorize_google(
+    request: Request,
+    redis: RedisDep,
+) -> RedirectResponse:
     try:
         token = await oauth.google.authorize_access_token(request)
     except OAuthError as exc:
@@ -38,6 +42,7 @@ async def authorize_google(request: Request, response: Response, redis: RedisDep
     session_id = secrets.token_urlsafe(32)
     await redis.set(f"session:{session_id}", user.model_dump_json(), settings.SESSION_TTL)
 
+    response = RedirectResponse("/")
     response.set_cookie(
         "session",
         session_id,
@@ -46,6 +51,8 @@ async def authorize_google(request: Request, response: Response, redis: RedisDep
         samesite="lax",
         max_age=settings.SESSION_TTL,
     )
+
+    return response
 
 
 @router.post("/logout")

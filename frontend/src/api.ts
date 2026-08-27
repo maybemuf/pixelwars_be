@@ -3,7 +3,7 @@ import { decodeBoard, type Board } from "./board.ts";
 export type { Board };
 
 export async function getBoard(): Promise<Board | null> {
-  const res = await fetch("/boards/");
+  const res = await fetch("/boards");
 
   if (!res.ok) throw new Error(`Board request failed (${res.status})`);
 

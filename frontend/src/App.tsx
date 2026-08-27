@@ -1,13 +1,18 @@
 import { useEffect, useState } from "react";
 
 import { getBoard, isSignedIn, signIn, signOut, type Board } from "./api.ts";
+import { PALETTE } from "./board.ts";
 import BoardView from "./BoardView.tsx";
+import { placePixel, socket } from "./socket.ts";
 
 export default function App() {
   const [board, setBoard] = useState<Board | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [signedIn, setSignedIn] = useState(isSignedIn);
+  const [live, setLive] = useState(false);
+  const [color, setColor] = useState(5);
+  const [notice, setNotice] = useState<string | null>(null);
 
   useEffect(() => {
     getBoard()
@@ -16,10 +21,34 @@ export default function App() {
       .finally(() => setLoading(false));
   }, []);
 
+  // Anyone opening the board joins the live feed; no auth for reading.
+  useEffect(() => {
+    const on = () => setLive(true);
+    const off = () => setLive(false);
+    socket.on("connect", on);
+    socket.on("disconnect", off);
+    socket.connect();
+
+    return () => {
+      socket.off("connect", on);
+      socket.off("disconnect", off);
+      socket.disconnect();
+    };
+  }, []);
+
+  const place = (offset: number) =>
+    placePixel({ offset, color }, (ack) => setNotice(ack?.error ?? null));
+
   return (
     <div className="min-h-screen bg-slate-950 text-slate-100">
       <header className="flex items-center justify-between border-b border-slate-800 px-6 py-4">
-        <h1 className="text-lg font-semibold tracking-tight">PixelWars</h1>
+        <h1 className="flex items-center gap-3 text-lg font-semibold tracking-tight">
+          PixelWars
+          <span
+            title={live ? "Live" : "Reconnecting…"}
+            className={`h-2 w-2 rounded-full ${live ? "bg-emerald-400" : "bg-slate-600"}`}
+          />
+        </h1>
         {signedIn ? (
           <button
             onClick={() => signOut().then(() => setSignedIn(false))}
@@ -41,12 +70,29 @@ export default function App() {
         {loading && <p className="text-slate-400">Loading board…</p>}
         {error && <p className="max-w-xl text-center text-red-400">{error}</p>}
         {!loading && !error && !board && <p className="text-slate-400">No board yet.</p>}
-        {board && <BoardView board={board} />}
+        {board && <BoardView board={board} color={signedIn ? color : null} onPlace={place} />}
+
+        {board && signedIn && (
+          <div className="flex flex-wrap justify-center gap-1">
+            {PALETTE.map((hex, i) => (
+              <button
+                key={hex}
+                onClick={() => setColor(i)}
+                aria-label={`Colour ${i}`}
+                aria-pressed={i === color}
+                style={{ backgroundColor: hex }}
+                className={`h-8 w-8 rounded border-2 ${i === color ? "border-sky-400" : "border-slate-800"}`}
+              />
+            ))}
+          </div>
+        )}
+
+        {notice && <p className="text-sm text-amber-400">{notice}</p>}
 
         {!loading && !error && (
           <p className="text-sm text-slate-500">
             Scroll to pan, ctrl/⌘+wheel to zoom.
-            {signedIn ? "" : " Sign in to place pixels."}
+            {signedIn ? " Pick a colour, then click a pixel." : " Sign in to place pixels."}
           </p>
         )}
       </main>

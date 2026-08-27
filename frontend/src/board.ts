@@ -34,6 +34,22 @@ export function decodeBoard(raw: string): Board {
   return { width: WIDTH, height: HEIGHT, pixels };
 }
 
+/** Flat index into `board.pixels`, the offset the API/socket speaks in. */
+export const offsetOf = (x: number, y: number) => y * WIDTH + x;
+
+/**
+ * Apply one live write. Socket payloads are untrusted, so an out-of-range
+ * offset or colour is dropped instead of corrupting the grid; returns the
+ * pixel to repaint, or null when the event was rejected.
+ */
+export function applyPixel(board: Board, offset: number, color: number) {
+  if (!Number.isInteger(offset) || offset < 0 || offset >= board.pixels.length) return null;
+  if (!Number.isInteger(color) || color < 0 || color >= PALETTE.length) return null;
+
+  board.pixels[offset] = color;
+  return { x: offset % board.width, y: Math.floor(offset / board.width), color: PALETTE[color] };
+}
+
 /** Palette indices -> RGBA, ready for `ctx.putImageData`. */
 export function toImageData(board: Board): ImageData {
   const rgba = new Uint8ClampedArray(board.pixels.length * 4);

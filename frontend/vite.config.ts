@@ -8,5 +8,5 @@ const proxy = { target: "http://localhost:8000", changeOrigin: true };
 
 export default defineConfig({
   plugins: [react(), tailwind()],
-  server: { host: true, port: 5173, proxy: { "/boards": proxy, "/auth": proxy, "/health": proxy } },
+  server: { host: true, port: 5173, proxy: { "/boards": proxy, "/auth": proxy, "/health": proxy, "/socket.io": { ...proxy, ws: true } } },
 });

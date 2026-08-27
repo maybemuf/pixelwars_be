@@ -1,14 +1,22 @@
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
 
-import { clampZoom, fitZoom, toImageData, viewportRect, type Board } from "./board.ts";
+import { applyPixel, clampZoom, fitZoom, offsetOf, toImageData, viewportRect, type Board } from "./board.ts";
+import { onPixels } from "./socket.ts";
 
 const GRID_FROM = 8; // screen px per board pixel before a grid is legible
 const MINIMAP = 160;
 const WHEEL_STEP = 1.06; // one wheel notch; gentle enough to land on a level
 const BUTTON_STEP = 1.25;
 
+type Props = {
+  board: Board;
+  /** Selected palette index, or null when the user may not paint. */
+  color: number | null;
+  onPlace: (offset: number) => void;
+};
+
 /** Pan with the native scrollbars, zoom with ctrl/cmd+wheel or the buttons. */
-export default function BoardView({ board }: { board: Board }) {
+export default function BoardView({ board, color, onPlace }: Props) {
   const scrollRef = useRef<HTMLDivElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const minimapRef = useRef<HTMLCanvasElement>(null);
@@ -41,12 +49,36 @@ export default function BoardView({ board }: { board: Board }) {
 
   // Downscale the board canvas into the minimap. Effects run in order, so the
   // board is already painted; keyed on visibility so a re-mount redraws.
-  useEffect(() => {
+  const drawMinimap = () => {
     const ctx = minimapRef.current?.getContext("2d");
     if (!canvasRef.current || !ctx) return;
     ctx.imageSmoothingEnabled = false;
     ctx.drawImage(canvasRef.current, 0, 0, MINIMAP, MINIMAP);
-  }, [board, showMinimap]);
+  };
+
+  useEffect(drawMinimap, [board, showMinimap]);
+
+  // Live writes: patch the single pixel instead of rebuilding the whole
+  // ImageData, so a busy board stays cheap to follow.
+  useEffect(
+    () =>
+      onPixels((batch) => {
+        const ctx = canvasRef.current?.getContext("2d");
+        if (!ctx) return;
+
+        let painted = false;
+        for (const { offset, color } of batch) {
+          const px = applyPixel(board, offset, color);
+          if (!px) continue;
+          ctx.fillStyle = px.color;
+          ctx.fillRect(px.x, px.y, 1, 1);
+          painted = true;
+        }
+        // ponytail: full downscale per batch; throttle if traffic gets heavy.
+        if (painted) drawMinimap();
+      }),
+    [board],
+  );
 
   // A resize can grow the viewport past the current zoom; follow it back up.
   useEffect(() => {
@@ -114,7 +146,7 @@ export default function BoardView({ board }: { board: Board }) {
       >
         <div
           className="relative"
-          style={{ width: scale, height: board.height * zoom }}
+          style={{ width: scale, height: board.height * zoom, cursor: color === null ? "default" : "crosshair" }}
           onMouseMove={(e) => {
             const r = e.currentTarget.getBoundingClientRect();
             const x = Math.floor((e.clientX - r.left) / zoom);
@@ -122,6 +154,10 @@ export default function BoardView({ board }: { board: Board }) {
             setCursor(x >= 0 && y >= 0 && x < board.width && y < board.height ? { x, y } : null);
           }}
           onMouseLeave={() => setCursor(null)}
+          onClick={() => {
+            if (color === null || !cursor) return;
+            onPlace(offsetOf(cursor.x, cursor.y));
+          }}
         >
           <canvas
             ref={canvasRef}

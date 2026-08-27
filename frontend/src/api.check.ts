@@ -2,6 +2,7 @@
 import assert from "node:assert/strict";
 
 import {
+  applyPixel,
   BOARD_BYTES,
   clampZoom,
   decodeBoard,
@@ -9,6 +10,8 @@ import {
   HEIGHT,
   MAX_ZOOM,
   MIN_ZOOM,
+  offsetOf,
+  PALETTE,
   viewportRect,
   WIDTH,
 } from "./board.ts";
@@ -72,3 +75,16 @@ const wide = viewportRect({ left: 0, top: 0, width: 4000, height: 4000 }, 0.25, 
 assert.deepEqual(wide, { left: 0, top: 0, width: 160, height: 160 }, "rect clamped to minimap");
 
 console.log("board checks passed");
+
+// Live socket writes are untrusted input: a bad offset or colour must be
+// dropped, not written past the end of the grid.
+const live = decodeBoard(b64(new Array(BOARD_BYTES).fill(0)));
+assert.deepEqual(applyPixel(live, offsetOf(3, 2), 7), { x: 3, y: 2, color: PALETTE[7] }, "pixel applied");
+assert.equal(live.pixels[offsetOf(3, 2)], 7, "grid updated");
+assert.equal(applyPixel(live, live.pixels.length, 1), null, "offset past the end rejected");
+assert.equal(applyPixel(live, -1, 1), null, "negative offset rejected");
+assert.equal(applyPixel(live, 0, 16), null, "colour outside the palette rejected");
+assert.equal(applyPixel(live, 0, 1.5), null, "non-integer colour rejected");
+assert.equal(live.pixels[0], 0, "rejected writes leave the grid alone");
+
+console.log("live-update checks passed");
