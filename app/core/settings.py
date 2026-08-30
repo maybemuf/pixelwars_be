@@ -16,4 +16,7 @@ class Settings(BaseSettings):
     REDIS_HOST: str
     REDIS_PORT: int
 
+    FRONTEND_URL: str
+    FRONTEND_ORIGIN: str
+
 settings = Settings()

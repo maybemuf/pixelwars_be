@@ -42,13 +42,13 @@ async def authorize_google(
     session_id = secrets.token_urlsafe(32)
     await redis.set(f"session:{session_id}", user.model_dump_json(), settings.SESSION_TTL)
 
-    response = RedirectResponse("/")
+    response = RedirectResponse(settings.FRONTEND_URL)
     response.set_cookie(
         "session",
         session_id,
         httponly=True,
         secure=True,
-        samesite="lax",
+        samesite="none",
         max_age=settings.SESSION_TTL,
     )
 
@@ -63,5 +63,10 @@ async def logout_user(
 ):
     if session:
         await redis.delete(f"session:{session}")
-    response.delete_cookie("session")
+    response.delete_cookie(
+        "session",
+        httponly=True,
+        secure=True,
+        samesite="none",
+    )
     return {"ok": True}

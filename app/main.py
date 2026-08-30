@@ -1,6 +1,7 @@
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
 from socketio import ASGIApp, AsyncServer
 from starlette.middleware.sessions import SessionMiddleware
 
@@ -10,16 +11,16 @@ from app.routers.auth import router as auth
 from app.routers.boards import router as boards
 from app.sockets.boards import BOARD_USERS_KEY, BoardNamespace
 
+ALLOWED_ORIGINS = [settings.FRONTEND_ORIGIN]
+
 
 @asynccontextmanager
 async def lifespan(_: FastAPI):
-    # Sids of clients this process will never see disconnect again.
-    # ponytail: single worker assumed — with several, this wipes their sids too.
-    # Give each worker its own set key (or drop this) if you scale out.
     await get_redis().delete(BOARD_USERS_KEY)
     yield
 
-sio = AsyncServer(async_mode="asgi", cors_allowed_origins="*",)
+
+sio = AsyncServer(async_mode="asgi", cors_allowed_origins=ALLOWED_ORIGINS)
 sio.register_namespace(BoardNamespace("/boards"))
 
 app = FastAPI(title="PixelWars API", version=settings.API_VERSION, lifespan=lifespan)
@@ -29,10 +30,20 @@ app.add_middleware(
     SessionMiddleware,
     secret_key=settings.SESSION_SECRET,
     session_cookie="oauth_state",
+    https_only=True,
+)
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=ALLOWED_ORIGINS,
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
 )
 
 app.include_router(auth)
 app.include_router(boards)
+
 
 @app.get("/health", tags=["health"])
 async def health(redis: RedisDep):

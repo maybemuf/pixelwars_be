@@ -1,2 +1,6 @@
 .venv
 .env
+.git
+tests
+compose.override.yaml
+Caddyfile

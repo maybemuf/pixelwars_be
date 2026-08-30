@@ -2,10 +2,9 @@ services:
   redis:
     image: redis:alpine
     container_name: pixelwars_redis
+    command: redis-server --appendonly yes
     volumes:
       - redis_data:/data
-    ports: 
-      - "${REDIS_PORT}:6379"
   api:
     build: .
     container_name: pixelwars_api
@@ -13,8 +12,6 @@ services:
       redis:
         condition: service_started
     restart: unless-stopped
-    ports:
-      - "8000:8000"
     environment:
       API_VERSION: '${API_VERSION}'
       GOOGLE_OAUTH_CLIENT_ID: '${GOOGLE_OAUTH_CLIENT_ID}'
@@ -22,24 +19,18 @@ services:
       SESSION_SECRET: '${SESSION_SECRET}'
       REDIS_HOST: '${REDIS_HOST}'
       REDIS_PORT: '${REDIS_PORT}'
-    volumes:
-      - ./app:/app/app
-    develop:
-      watch:
-        - action: rebuild
-          path: pyproject.toml
-        - action: rebuild
-          path: uv.lock
-
-  frontend:
-    build: ./frontend
-    container_name: pixelwars_frontend
-    depends_on:
-      api:
-        condition: service_started
+      FRONTEND_URL: '${FRONTEND_URL}'
+      FRONTEND_ORIGIN: '${FRONTEND_ORIGIN}'
+  caddy:
+    image: caddy:alpine
     restart: unless-stopped
-    ports:
-      - "3000:80"
+    ports: ["80:80", "443:443"]
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
 
 volumes:
   redis_data:
+  caddy_data:
+  caddy_config:
