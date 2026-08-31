@@ -1,24 +1,27 @@
-import asyncio
+import time
 from contextlib import asynccontextmanager
 
-from fastapi import FastAPI, Response
+import structlog
+from asgi_correlation_id import CorrelationIdMiddleware, correlation_id
+from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
-from redis.exceptions import RedisError
 from socketio import ASGIApp, AsyncRedisManager, AsyncServer
 from starlette.middleware.sessions import SessionMiddleware
+from structlog.contextvars import bind_contextvars, clear_contextvars
 
 from app.core import BOARD_KEY, BOARD_MAX_OFFSET, BOARD_USERS_KEY, settings
-from app.deps.redis import RedisDep, get_redis
+from app.core.logging import setup_logging
+from app.deps.redis import get_redis
 from app.routers.auth import router as auth
 from app.routers.boards import router as boards
+from app.routers.health import router as health
 from app.sockets.boards import BoardNamespace
 
 ALLOWED_ORIGINS = [settings.FRONTEND_ORIGIN]
 
-# A readiness probe that can hang is worse than none: it turns a dead dependency
-# into a stuck request instead of a fast 503.
-REDIS_PING_TIMEOUT = 2
+setup_logging(json_logs=settings.is_production())
 
+logger = structlog.get_logger()
 
 @asynccontextmanager
 async def lifespan(_: FastAPI):
@@ -53,22 +56,26 @@ app.add_middleware(
 
 app.include_router(auth)
 app.include_router(boards)
+app.include_router(health)
 
+@app.middleware("http")
+async def log_requests(request: Request, call_next):
+    clear_contextvars()
+    bind_contextvars(correlation_id=correlation_id.get())
 
-@app.get("/health/live", tags=["health"])
-async def liveness():
-    """Is the process up? Deliberately dependency-free — a failure here means restart me."""
-    return {"status": "ok"}
+    start_time = time.perf_counter()
+    response = await call_next(request)
+    response_time = time.perf_counter() - start_time
 
+    logger.info(
+        "request",
+        method=request.method,
+        path=request.url.path,
+        status=response.status_code,
+        response_time=f"{response_time:.3f}s",
+    )
 
-@app.get("/health/ready", tags=["health"])
-async def readiness(redis: RedisDep, response: Response):
-    """Can we actually serve? Redis holds the board, the sessions and the presence set."""
-    try:
-        async with asyncio.timeout(REDIS_PING_TIMEOUT):
-            await redis.ping()
-    except (RedisError, TimeoutError, OSError):
-        response.status_code = 503
-        return {"status": "unavailable", "redis": "down"}
+    return response
 
-    return {"status": "ok", "redis": "up"}
+# Add CorrelationIdMiddleware after log_requests so it runs first
+app.add_middleware(CorrelationIdMiddleware)

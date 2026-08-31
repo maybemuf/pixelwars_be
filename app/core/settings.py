@@ -10,6 +10,7 @@ class Settings(BaseSettings):
         env_file_encoding="utf-8",
         extra="ignore",
     )
+    ENVIROMENT: str
     SESSION_TTL: int = 60 * 60 * 24 * 14  # 14 days
 
     API_VERSION: str
@@ -29,6 +30,9 @@ class Settings(BaseSettings):
         """scheme://host:port — what a browser puts in the Origin header."""
         url = urlsplit(str(self.FRONTEND_URL))
         return f"{url.scheme}://{url.netloc}"
+    
+    def is_production(self) -> bool:
+        return self.ENVIROMENT == "prod"
 
 settings = Settings()
 
