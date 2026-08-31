@@ -1,3 +1,6 @@
+from urllib.parse import urlsplit
+
+from pydantic import AnyHttpUrl
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -16,8 +19,15 @@ class Settings(BaseSettings):
     REDIS_HOST: str
     REDIS_PORT: int
 
-    FRONTEND_URL: str
-    FRONTEND_ORIGIN: str
+    # AnyHttpUrl so a scheme-less value ("localhost:3000") fails at startup instead of
+    # silently breaking the OAuth redirect and every CORS/Socket.IO origin check.
+    FRONTEND_URL: AnyHttpUrl
+
+    @property
+    def FRONTEND_ORIGIN(self) -> str:
+        """scheme://host:port — what a browser puts in the Origin header."""
+        url = urlsplit(str(self.FRONTEND_URL))
+        return f"{url.scheme}://{url.netloc}"
 
 settings = Settings()
 

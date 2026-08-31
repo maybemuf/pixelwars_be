@@ -2,7 +2,7 @@ from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from socketio import ASGIApp, AsyncServer
+from socketio import ASGIApp, AsyncRedisManager, AsyncServer
 from starlette.middleware.sessions import SessionMiddleware
 
 from app.core import BOARD_KEY, BOARD_MAX_OFFSET, BOARD_USERS_KEY, settings
@@ -23,7 +23,8 @@ async def lifespan(_: FastAPI):
     yield
 
 
-sio = AsyncServer(async_mode="asgi", cors_allowed_origins=ALLOWED_ORIGINS)
+mgr = AsyncRedisManager(f"redis://{settings.REDIS_HOST}:{settings.REDIS_PORT}")
+sio = AsyncServer(async_mode="asgi", cors_allowed_origins=ALLOWED_ORIGINS, client_manager=mgr)
 sio.register_namespace(BoardNamespace("/boards"))
 
 app = FastAPI(title="PixelWars API", version=settings.API_VERSION, lifespan=lifespan)
