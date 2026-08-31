@@ -20,3 +20,8 @@ class Settings(BaseSettings):
     FRONTEND_ORIGIN: str
 
 settings = Settings()
+
+BOARD_KEY = "board:main"
+BOARD_USERS_KEY = "board:main:users"
+BOARD_DIM = 1024
+BOARD_MAX_OFFSET = BOARD_DIM * BOARD_DIM - 1

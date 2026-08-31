@@ -2,6 +2,7 @@ import base64
 
 from fastapi import APIRouter
 
+from app.core import BOARD_KEY
 from app.deps import RedisDep
 
 router = APIRouter(
@@ -11,6 +12,5 @@ router = APIRouter(
 
 
 @router.get("")
-async def get_board(redis: RedisDep):
-    raw = await redis.get("board:1")
-    return base64.b64encode(raw).decode() if raw else None
+async def get_main_board(redis: RedisDep):
+    return base64.b64encode(await redis.get(BOARD_KEY)).decode()

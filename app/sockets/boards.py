@@ -2,11 +2,8 @@ from http.cookies import SimpleCookie
 
 import socketio
 
+from app.core import BOARD_KEY, BOARD_MAX_OFFSET, BOARD_USERS_KEY
 from app.deps.redis import get_redis
-
-BOARD_KEY = "board:1"
-BOARD_USERS_KEY = "board:1:users"
-MAX_OFFSET = 1024 * 1024 - 1  # 1M pixels, 4 bits each
 
 
 def parse_pixel(data) -> tuple[int, int] | None:
@@ -15,7 +12,7 @@ def parse_pixel(data) -> tuple[int, int] | None:
         offset, color = int(data["offset"]), int(data["color"])
     except (KeyError, TypeError, ValueError):
         return None
-    if not (0 <= offset <= MAX_OFFSET and 0 <= color <= 15):
+    if not (0 <= offset <= BOARD_MAX_OFFSET and 0 <= color <= 15):
         return None
     return offset, color
 

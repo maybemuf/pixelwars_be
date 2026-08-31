@@ -5,18 +5,21 @@ from fastapi.middleware.cors import CORSMiddleware
 from socketio import ASGIApp, AsyncServer
 from starlette.middleware.sessions import SessionMiddleware
 
-from app.core import settings
+from app.core import BOARD_KEY, BOARD_MAX_OFFSET, BOARD_USERS_KEY, settings
 from app.deps.redis import RedisDep, get_redis
 from app.routers.auth import router as auth
 from app.routers.boards import router as boards
-from app.sockets.boards import BOARD_USERS_KEY, BoardNamespace
+from app.sockets.boards import BoardNamespace
 
 ALLOWED_ORIGINS = [settings.FRONTEND_ORIGIN]
 
 
 @asynccontextmanager
 async def lifespan(_: FastAPI):
-    await get_redis().delete(BOARD_USERS_KEY)
+    redis = get_redis()
+    await redis.delete(BOARD_USERS_KEY)
+    if not await redis.exists(BOARD_KEY):
+        await redis.bitfield(BOARD_KEY).set("u4", f"#{BOARD_MAX_OFFSET}", 0).execute()
     yield
 
 
