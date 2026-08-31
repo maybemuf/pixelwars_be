@@ -1,7 +1,9 @@
+import asyncio
 from contextlib import asynccontextmanager
 
-from fastapi import FastAPI
+from fastapi import FastAPI, Response
 from fastapi.middleware.cors import CORSMiddleware
+from redis.exceptions import RedisError
 from socketio import ASGIApp, AsyncRedisManager, AsyncServer
 from starlette.middleware.sessions import SessionMiddleware
 
@@ -12,6 +14,10 @@ from app.routers.boards import router as boards
 from app.sockets.boards import BoardNamespace
 
 ALLOWED_ORIGINS = [settings.FRONTEND_ORIGIN]
+
+# A readiness probe that can hang is worse than none: it turns a dead dependency
+# into a stuck request instead of a fast 503.
+REDIS_PING_TIMEOUT = 2
 
 
 @asynccontextmanager
@@ -49,11 +55,20 @@ app.include_router(auth)
 app.include_router(boards)
 
 
-@app.get("/health", tags=["health"])
-async def health(redis: RedisDep):
-    result = await redis.ping()
+@app.get("/health/live", tags=["health"])
+async def liveness():
+    """Is the process up? Deliberately dependency-free — a failure here means restart me."""
+    return {"status": "ok"}
 
-    return {
-        "status": "ok",
-        "redis": "alive" if result else "dead",
-    }
+
+@app.get("/health/ready", tags=["health"])
+async def readiness(redis: RedisDep, response: Response):
+    """Can we actually serve? Redis holds the board, the sessions and the presence set."""
+    try:
+        async with asyncio.timeout(REDIS_PING_TIMEOUT):
+            await redis.ping()
+    except (RedisError, TimeoutError, OSError):
+        response.status_code = 503
+        return {"status": "unavailable", "redis": "down"}
+
+    return {"status": "ok", "redis": "up"}

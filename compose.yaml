@@ -4,11 +4,21 @@ services:
     command: redis-server --appendonly yes
     volumes:
       - redis_data:/data
+    healthcheck:
+      # grep PONG rather than trust the exit code: a loading instance still replies,
+      # just not with PONG
+      test: ["CMD-SHELL", "redis-cli ping | grep -q PONG"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+      start_period: 5s
   api:
     build: .
     depends_on:
       redis:
-        condition: service_started
+        # not service_started: lifespan touches Redis on the first line, so a container
+        # that has merely launched is not enough — it has to answer PING
+        condition: service_healthy
     restart: unless-stopped
     environment:
       API_VERSION: '${API_VERSION}'
@@ -19,6 +29,15 @@ services:
       REDIS_PORT: '${REDIS_PORT}'
       FRONTEND_URL: '${FRONTEND_URL}'
       COOLDOWN_SEC: '${COOLDOWN_SEC}'
+    healthcheck:
+      # liveness, not readiness: restarting the API cannot fix a dead Redis.
+      # urllib instead of curl — the slim image has none, and does not need one.
+      test: ["CMD", "python", "-c",
+             "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/health/live', timeout=3)"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+      start_period: 15s
   caddy:
     image: caddy:alpine
     restart: unless-stopped
