@@ -2,8 +2,9 @@ from http.cookies import SimpleCookie
 
 import socketio
 
-from app.core import BOARD_KEY, BOARD_MAX_OFFSET, BOARD_USERS_KEY
+from app.core import BOARD_KEY, BOARD_MAX_OFFSET, BOARD_USERS_KEY, settings
 from app.deps.redis import get_redis
+from app.schemas import User
 
 
 def parse_pixel(data) -> tuple[int, int] | None:
@@ -34,16 +35,24 @@ class BoardNamespace(socketio.AsyncNamespace):
         await self._broadcast_users()
 
     async def on_place_pixel(self, sid, data):
+        redis = get_redis()
         """The return value is the client's ack; None means accepted."""
         session = (await self.get_session(sid))["session"]
-        if not session or not await get_redis().exists(f"session:{session}"):
+        raw = await redis.get(f"session:{session}")
+        if not raw:
             return {"error": "Sign in to place pixels"}
+        user = User.model_validate_json(raw, by_name=True)
+
+        key = f"cooldown:{user.id}"
+        ok, ttl_ms = await get_redis().pipeline().set(key, 1, ex=settings.COOLDOWN_SEC, nx=True).pttl(key).execute()
+        if not ok:
+            return {"error": "Cooldown", "retry_in_ms": max(ttl_ms, 0)}
 
         pixel = parse_pixel(data)
         if pixel is None:
             return {"error": "Invalid pixel"}
         offset, color = pixel
 
-        await get_redis().bitfield(BOARD_KEY).set("u4", f"#{offset}", color).execute()
+        await redis.bitfield(BOARD_KEY).set("u4", f"#{offset}", color).execute()
 
         await self.emit("pixel", {"offset": offset, "color": color})

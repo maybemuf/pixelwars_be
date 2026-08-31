@@ -18,7 +18,8 @@ class Settings(BaseSettings):
     SESSION_SECRET: str
     REDIS_HOST: str
     REDIS_PORT: int
-
+    COOLDOWN_SEC: int
+    
     # AnyHttpUrl so a scheme-less value ("localhost:3000") fails at startup instead of
     # silently breaking the OAuth redirect and every CORS/Socket.IO origin check.
     FRONTEND_URL: AnyHttpUrl

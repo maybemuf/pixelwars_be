@@ -18,6 +18,7 @@ services:
       REDIS_HOST: '${REDIS_HOST}'
       REDIS_PORT: '${REDIS_PORT}'
       FRONTEND_URL: '${FRONTEND_URL}'
+      COOLDOWN_SEC: '${COOLDOWN_SEC}'
   caddy:
     image: caddy:alpine
     restart: unless-stopped
