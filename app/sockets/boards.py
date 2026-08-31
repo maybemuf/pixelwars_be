@@ -56,3 +56,5 @@ class BoardNamespace(socketio.AsyncNamespace):
         await redis.bitfield(BOARD_KEY).set("u4", f"#{offset}", color).execute()
 
         await self.emit("pixel", {"offset": offset, "color": color})
+
+        return {"retry_in_ms": settings.COOLDOWN_SEC * 1000}
