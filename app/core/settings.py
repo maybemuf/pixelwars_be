@@ -19,7 +19,7 @@ class Settings(BaseSettings):
     REDIS_HOST: str
     REDIS_PORT: int
     COOLDOWN_SEC: int
-    
+
     # AnyHttpUrl so a scheme-less value ("localhost:3000") fails at startup instead of
     # silently breaking the OAuth redirect and every CORS/Socket.IO origin check.
     FRONTEND_URL: AnyHttpUrl
@@ -33,6 +33,12 @@ class Settings(BaseSettings):
 settings = Settings()
 
 BOARD_KEY = "board:main"
+BOARD_OWNAGE_KEY = "board:main:ownage"
 BOARD_USERS_KEY = "board:main:users"
+BOARD_LOGS_KEY = "board:main:logs"
+BOARD_LEADERBOARD_KEY = "board:main:leaderboard"
+BOARD_TOTAL_KEY = "board:main:total"
+# capped log: keeps replay/audit useful without letting the stream outgrow the board
+BOARD_LOG_MAXLEN = 1_000_000
 BOARD_DIM = 1024
 BOARD_MAX_OFFSET = BOARD_DIM * BOARD_DIM - 1
