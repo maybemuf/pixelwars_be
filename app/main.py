@@ -62,12 +62,14 @@ app.add_middleware(
 
 @app.middleware("http")
 async def log_requests(request: Request, call_next):
-
     start_time = time.perf_counter()
     response = await call_next(request)
     response_time = time.perf_counter() - start_time
 
-    logger.info(f"request took {response_time}")
+    logger.info(
+        f"Requesting: {request.url}",
+        extra={"path": request.url, "response_time": response_time},
+    )
 
     return response
 
