@@ -30,6 +30,8 @@ services:
       REDIS_PORT: '${REDIS_PORT}'
       FRONTEND_URL: '${FRONTEND_URL}'
       COOLDOWN_SEC: '${COOLDOWN_SEC}'
+    volumes:
+      - api_logs:/app/logs
     healthcheck:
       # liveness, not readiness: restarting the API cannot fix a dead Redis.
       # urllib instead of curl — the slim image has none, and does not need one.
@@ -49,6 +51,7 @@ services:
       - caddy_config:/config
 
 volumes:
+  api_logs:
   redis_data:
   caddy_data:
   caddy_config:

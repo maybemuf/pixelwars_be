@@ -1,13 +1,12 @@
+import logging
 import time
 from contextlib import asynccontextmanager
 
-import structlog
-from asgi_correlation_id import CorrelationIdMiddleware, correlation_id
+from asgi_correlation_id import CorrelationIdMiddleware
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from socketio import ASGIApp, AsyncRedisManager, AsyncServer
 from starlette.middleware.sessions import SessionMiddleware
-from structlog.contextvars import bind_contextvars, clear_contextvars
 
 from app.core import BOARD_KEY, BOARD_MAX_OFFSET, BOARD_USERS_KEY, settings
 from app.core.logging import setup_logging
@@ -20,8 +19,8 @@ from app.sockets.boards import BoardNamespace
 ALLOWED_ORIGINS = [settings.FRONTEND_ORIGIN]
 
 setup_logging(json_logs=settings.is_production())
+logger = logging.getLogger(__name__)
 
-logger = structlog.get_logger()
 
 @asynccontextmanager
 async def lifespan(_: FastAPI):
@@ -39,6 +38,12 @@ sio.register_namespace(BoardNamespace("/boards"))
 app = FastAPI(title="PixelWars API", version=settings.API_VERSION, lifespan=lifespan)
 sio_asgi_app = ASGIApp(socketio_server=sio, other_asgi_app=app)
 
+app.include_router(auth)
+app.include_router(boards)
+app.include_router(health)
+
+### Middleware setup
+
 app.add_middleware(
     SessionMiddleware,
     secret_key=settings.SESSION_SECRET,
@@ -54,28 +59,17 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-app.include_router(auth)
-app.include_router(boards)
-app.include_router(health)
 
 @app.middleware("http")
 async def log_requests(request: Request, call_next):
-    clear_contextvars()
-    bind_contextvars(correlation_id=correlation_id.get())
 
     start_time = time.perf_counter()
     response = await call_next(request)
     response_time = time.perf_counter() - start_time
 
-    logger.info(
-        "request",
-        method=request.method,
-        path=request.url.path,
-        status=response.status_code,
-        response_time=f"{response_time:.3f}s",
-    )
+    logger.info(f"request took {response_time}")
 
     return response
 
-# Add CorrelationIdMiddleware after log_requests so it runs first
+
 app.add_middleware(CorrelationIdMiddleware)
