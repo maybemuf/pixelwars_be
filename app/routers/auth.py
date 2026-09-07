@@ -1,3 +1,4 @@
+import logging
 import secrets
 
 from authlib.integrations.base_client import OAuthError
@@ -18,6 +19,8 @@ oauth.register(
     server_metadata_url="https://accounts.google.com/.well-known/openid-configuration",
 )
 
+logger = logging.getLogger(__name__)
+
 router = APIRouter(prefix="/auth", tags=["auth"])
 
 
@@ -35,12 +38,19 @@ async def authorize_google(
     try:
         token = await oauth.google.authorize_access_token(request)
     except OAuthError as exc:
+        # The client only ever sees a flat 401; without this the reason (bad redirect_uri,
+        # expired state, clock skew) is lost entirely.
+        logger.warning("google oauth exchange failed: %s", exc)
         raise HTTPException(status_code=401, detail="Google auth failed") from exc
 
     user = User.model_validate(token.get("userinfo"))
 
     session_id = secrets.token_urlsafe(32)
     await redis.set(f"session:{session_id}", user.model_dump_json(), settings.SESSION_TTL)
+
+    # Auth events are the audit trail. user.id (Google `sub`) identifies the account;
+    # session_id must never be logged — it is a bearer credential.
+    logger.info("session created for user %s", user.id)
 
     response = RedirectResponse(settings.FRONTEND_URL)
     response.set_cookie(
@@ -63,6 +73,7 @@ async def logout_user(
 ):
     if session:
         await redis.delete(f"session:{session}")
+    logger.info("logout requested: session_present=%s", session is not None)
     response.delete_cookie(
         "session",
         httponly=True,

@@ -14,22 +14,13 @@ services:
       start_period: 5s
   api:
     build: .
+    env_file: .env
     depends_on:
       redis:
         # not service_started: lifespan touches Redis on the first line, so a container
         # that has merely launched is not enough — it has to answer PING
         condition: service_healthy
     restart: unless-stopped
-    environment:
-      ENVIROMENT: '${ENVIROMENT}'
-      API_VERSION: '${API_VERSION}'
-      GOOGLE_OAUTH_CLIENT_ID: '${GOOGLE_OAUTH_CLIENT_ID}'
-      GOOGLE_OAUTH_CLIENT_SECRET: '${GOOGLE_OAUTH_CLIENT_SECRET}'
-      SESSION_SECRET: '${SESSION_SECRET}'
-      REDIS_HOST: '${REDIS_HOST}'
-      REDIS_PORT: '${REDIS_PORT}'
-      FRONTEND_URL: '${FRONTEND_URL}'
-      COOLDOWN_SEC: '${COOLDOWN_SEC}'
     volumes:
       - api_logs:/app/logs
     healthcheck:
@@ -41,6 +32,9 @@ services:
       timeout: 5s
       retries: 3
       start_period: 15s
+  otel-lgtm:
+    image: grafana/otel-lgtm:latest
+    ports: ["3000:3000"]
   caddy:
     image: caddy:alpine
     restart: unless-stopped

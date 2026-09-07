@@ -20,4 +20,5 @@ __all__ = [
     "BOARD_LOG_MAXLEN",
     "BOARD_DIM",
     "BOARD_MAX_OFFSET",
+    "otel_client"
 ]

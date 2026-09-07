@@ -1,6 +1,6 @@
 from urllib.parse import urlsplit
 
-from pydantic import AnyHttpUrl
+from pydantic import AnyHttpUrl, Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -21,8 +21,11 @@ class Settings(BaseSettings):
     REDIS_PORT: int
     COOLDOWN_SEC: int
 
-    # AnyHttpUrl so a scheme-less value ("localhost:3000") fails at startup instead of
-    # silently breaking the OAuth redirect and every CORS/Socket.IO origin check.
+    OTEL_ENABLED: bool = False
+    OTEL_EXPORTER_OTLP_ENDPOINT: str
+    OTEL_TRACES_SAMPLER_ARG: float = Field(ge=0, le=1, default=1)
+    OTEL_METRIC_EXPORT_INTERVAL_MS: int = 15000
+
     FRONTEND_URL: AnyHttpUrl
 
     @property
@@ -30,6 +33,10 @@ class Settings(BaseSettings):
         """scheme://host:port — what a browser puts in the Origin header."""
         url = urlsplit(str(self.FRONTEND_URL))
         return f"{url.scheme}://{url.netloc}"
+    
+    @property
+    def ALLOWED_ORIGINS(self) -> list[str]:
+        return [self.FRONTEND_ORIGIN]
     
     def is_production(self) -> bool:
         return self.ENVIROMENT == "prod"
