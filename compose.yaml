@@ -34,7 +34,7 @@ services:
       start_period: 15s
   otel-lgtm:
     image: grafana/otel-lgtm:latest
-    ports: ["3000:3000"]
+    ports: ["3010:3000"]
   caddy:
     image: caddy:alpine
     restart: unless-stopped

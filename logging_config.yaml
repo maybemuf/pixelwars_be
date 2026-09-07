@@ -5,6 +5,8 @@ filters:
     (): asgi_correlation_id.CorrelationIdFilter
     uuid_length: 32
     default_value: '-'
+  trace_context:
+    (): app.core.logging.TraceContextFilter
 formatters:
   simple:
     format: '[%(levelname)s|%(module)s|L%(lineno)d] %(asctime)s:[%(correlation_id)s][%(otelTraceID)s] %(message)s'
@@ -37,6 +39,7 @@ handlers:
     class: logging.handlers.QueueHandler
     filters:
       - correlation_id
+      - trace_context
     handlers:
       - stdout
       - file
