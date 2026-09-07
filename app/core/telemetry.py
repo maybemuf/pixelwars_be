@@ -30,6 +30,48 @@ logger = logging.getLogger(__name__)
 tracer = trace.get_tracer("pixelwars")
 meter = metrics.get_meter("pixelwars")
 
+place_pixel_attempt_counter = meter.create_counter(
+    "pixelwars.pixel.place.attempts",
+    unit="pixel",
+    description="Pixel placement attempts.",
+)
+
+place_pixel_attempt_duration_histogram = meter.create_histogram(
+    "pixelwars.pixel.place.duration",
+    unit="s",
+    description="Pixel placement handler duration.",
+)
+
+board_active_user_gauge = meter.create_gauge(
+    "pixelwars.board.users.online",
+    unit="user",
+    description="Users currently connected to the board.",
+)
+
+board_total_pixels = meter.create_gauge(
+    "pixelwars.board.pixels.total",
+    unit="pixel",
+    description="A gauge that describes a total pixels placed on the board.",
+)
+
+socket_connect_counter = meter.create_counter(
+    "pixelwars.socket.connect",
+    unit="connection",
+    description="Socket.IO connections.",
+)
+
+socket_disconnect_counter = meter.create_counter(
+    "pixelwars.socket.disconnect",
+    unit="connection",
+    description="Socket.IO disconnections.",
+)
+
+auth_counter = meter.create_counter(
+    "pixelwars.auth.logins",
+    unit="login",
+    description="Successful logins.",
+)
+
 
 def setup_telemetry(app: FastAPI):
     if not settings.OTEL_ENABLED:
@@ -70,11 +112,9 @@ def setup_telemetry(app: FastAPI):
     )
     metrics.set_meter_provider(meter_provider)
 
-
     logger.info("telemetry enabled: exporting to %s", settings.OTEL_EXPORTER_OTLP_ENDPOINT)
 
     FastAPIInstrumentor.instrument_app(app)
     RedisInstrumentor().instrument()
     HTTPXClientInstrumentor().instrument()
     LoggingInstrumentor().instrument(inject_trace_context=True)
-

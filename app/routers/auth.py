@@ -7,6 +7,7 @@ from fastapi import APIRouter, Cookie, HTTPException, Request, Response
 from fastapi.responses import RedirectResponse
 
 from app.core import settings
+from app.core.telemetry import auth_counter
 from app.deps.redis import RedisDep
 from app.schemas import User
 
@@ -41,6 +42,7 @@ async def authorize_google(
         # The client only ever sees a flat 401; without this the reason (bad redirect_uri,
         # expired state, clock skew) is lost entirely.
         logger.warning("google oauth exchange failed: %s", exc)
+        auth_counter.add(1, {"provider": "google", "result": "failed"})
         raise HTTPException(status_code=401, detail="Google auth failed") from exc
 
     user = User.model_validate(token.get("userinfo"))
@@ -61,7 +63,7 @@ async def authorize_google(
         samesite="none",
         max_age=settings.SESSION_TTL,
     )
-
+    auth_counter.add(1, {"provider": "google", "result": "success"})
     return response
 
 

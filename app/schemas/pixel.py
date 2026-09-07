@@ -24,6 +24,7 @@ class PixelPlacementResult:
 @dataclass
 class PixelPlacementSuccess(PixelPlacementResult):
     entry_id: str
+    pixels_placed: int
 
 
 @dataclass
@@ -48,4 +49,4 @@ class SetPixelSpanAttributes(BaseModel):
     pixel_result: PixelResultEnum
     cooldown_retry_in_ms: int | None = None
     enduser_id: str | None = None
-    steam_entry_id: str | None = None
+    stream_entry_id: str | None = None

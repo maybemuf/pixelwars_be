@@ -16,6 +16,7 @@ from app.schemas.pixel import PixelPlacement, PixelPlacementError, PixelPlacemen
 
 logger = logging.getLogger("service.boards")
 
+
 async def init_board() -> bool:
     """Returns True when the board was missing and had to be seeded."""
     await redis.delete(BOARD_USERS_KEY)
@@ -41,7 +42,10 @@ async def place_pixel(pixel: PixelPlacement, user_id: str) -> PixelPlacementSucc
     ok, ttl_ms = await p.execute()
 
     if not ok:
-        return PixelPlacementError(ttl_ms)
+        return PixelPlacementError(
+            board_id=BOARD_KEY,
+            retry_in_ms=ttl_ms,
+        )
 
     p.execute_command("BITFIELD", BOARD_KEY, "SET", "u4", f"#{pixel.offset}", pixel.color)
     p.xadd(
@@ -52,9 +56,14 @@ async def place_pixel(pixel: PixelPlacement, user_id: str) -> PixelPlacementSucc
     )
     p.zincrby(BOARD_LEADERBOARD_KEY, 1, user_id)
     p.incr(BOARD_TOTAL_KEY)
-    _, entry_id, _, _ = await p.execute()
+    _, entry_id, _, pixels_placed = await p.execute()
 
-    return PixelPlacementSuccess(entry_id, ttl_ms)
+    return PixelPlacementSuccess(
+        board_id=BOARD_KEY,
+        retry_in_ms=ttl_ms,
+        entry_id=entry_id.decode(),
+        pixels_placed=pixels_placed,
+    )
 
 
 async def get_active_users() -> int:
