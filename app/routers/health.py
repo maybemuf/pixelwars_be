@@ -27,6 +27,7 @@ router = APIRouter(
 @router.get(
     "/live",
     response_model=HealthStatus,
+    response_model_exclude_none=True,
     summary="Liveness probe",
     responses={200: {"description": "The process is running."}},
 )

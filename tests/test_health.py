@@ -42,3 +42,8 @@ def test_readiness_fails_fast_when_redis_hangs(client):
     app.dependency_overrides[get_redis] = HangingRedis
     r = client.get("/health/ready")
     assert r.status_code == 503
+
+
+def test_liveness_reports_no_dependency(client):
+    """It takes no dependencies, so it must not claim anything about redis."""
+    assert client.get("/health/live").json() == {"status": "ok"}

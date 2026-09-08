@@ -8,15 +8,19 @@
 		X-Content-Type-Options nosniff
 		Referrer-Policy strict-origin-when-cross-origin
 		X-Frame-Options DENY
-		Content-Security-Policy "default-src 'none'; frame-ancestors 'none'"
 		-Server
 	}
 
-	# Swagger UI pulls its bundle and stylesheet from cdn.jsdelivr.net, which the
-	# default-src 'none' policy above blocks -- /docs rendered blank behind the proxy.
-	# Narrowest exception that makes the docs usable; every other path keeps 'none'.
+	# CSP is split across two mutually exclusive matchers on purpose. Caddy merges every
+	# `header` directive in a site into one handler, so a catch-all CSP plus a narrower
+	# override is not deterministic -- the strict one wins and /docs stays blank.
 	@docs path /docs /docs/* /redoc /redoc/* /openapi.json
+	@notdocs not path /docs /docs/* /redoc /redoc/* /openapi.json
+
+	# Swagger UI pulls its bundle and stylesheet from cdn.jsdelivr.net.
 	header @docs Content-Security-Policy "default-src 'none'; script-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net; style-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net; img-src 'self' data: https://fastapi.tiangolo.com; connect-src 'self'; frame-ancestors 'none'"
+
+	header @notdocs Content-Security-Policy "default-src 'none'; frame-ancestors 'none'"
 
 	rate_limit {
 		zone dynamic_zone {
