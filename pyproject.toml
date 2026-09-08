@@ -1,7 +1,61 @@
 [project]
-name = "pixelwars"
+name = "pixelwars_server"
 version = "0.1.0"
-description = "Add your description here"
+description = "Python FastAPI backend for pixelwars"
 readme = "README.md"
+license = "MIT"
+license-files = ["LICENSE"]
 requires-python = ">=3.13"
-dependencies = []
+dependencies = [
+    "asgi-correlation-id>=5.0.1",
+    "authlib>=1.7.2",
+    "fastapi[standard]>=0.140.2",
+    "itsdangerous>=2.2.0",
+    "opentelemetry-exporter-otlp-proto-http>=1.44.0",
+    "opentelemetry-instrumentation-fastapi>=0.65b0",
+    "opentelemetry-instrumentation-httpx>=0.65b0",
+    "opentelemetry-instrumentation-logging>=0.65b0",
+    "opentelemetry-instrumentation-redis>=0.65b0",
+    "opentelemetry-sdk>=1.44.0",
+    # imported directly by app/core/settings.py and app/schemas/*; they only arrived
+    # transitively via fastapi[standard], which would break us silently if it ever
+    # dropped the extra.
+    "pydantic>=2.12.0",
+    "pydantic-settings>=2.15.0",
+    "python-socketio>=5.16.4",
+    "pyyaml>=6.0.3",
+    "redis>=8.1.0",
+]
+
+[dependency-groups]
+dev = [
+    "fakeredis>=2.37.1",
+    "pytest>=9.1.1",
+    "ruff>=0.9.0",
+    # pre-1.0: diagnostics shift between releases, so pin the minor
+    "ty>=0.0.79,<0.1",
+]
+
+[tool.setuptools]
+packages = ["app"]
+
+[tool.fastapi]
+entrypoint = "app.main:app"
+
+[tool.pytest.ini_options]
+# tests import `app.*`; the repo root isn't on sys.path by default
+pythonpath = ["."]
+
+[tool.ty.environment]
+python-version = "3.13"
+
+[tool.ty.src]
+include = ["app", "tests"]
+
+[tool.ruff]
+target-version = "py313"
+line-length = 120
+
+[tool.ruff.lint]
+# E/F — pyflakes+pycodestyle, I — isort, UP — pyupgrade, B — bugbear
+select = ["E", "F", "I", "UP", "B"]

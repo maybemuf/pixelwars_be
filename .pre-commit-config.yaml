@@ -1,0 +1,35 @@
+# uv run pre-commit install
+repos:
+  - repo: https://github.com/astral-sh/ruff-pre-commit
+    rev: v0.15.5
+    hooks:
+      - id: ruff-check
+        args: [--fix]
+      - id: ruff-format
+
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v6.0.0
+    hooks:
+      - id: end-of-file-fixer
+      - id: trailing-whitespace
+      - id: check-yaml
+        exclude: ^compose\.prod\.yaml$
+      - id: check-yaml
+        # Compose's !reset / !override tags have no constructor, so this one gets a
+        # syntax-only load. `docker compose config` in CI is its real validator.
+        name: check-yaml (compose overlay)
+        args: [--unsafe]
+        files: ^compose\.prod\.yaml$
+      - id: check-added-large-files
+      - id: detect-private-key
+
+  - repo: local
+    hooks:
+      # Local rather than a mirror: ty is pinned in pyproject, and the hook must use
+      # that exact version -- its diagnostics change between pre-1.0 releases.
+      - id: ty
+        name: ty check
+        entry: uv run ty check
+        language: system
+        types: [python]
+        pass_filenames: false

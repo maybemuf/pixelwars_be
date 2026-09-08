@@ -1,0 +1,23 @@
+# Local development defaults. Compose loads this automatically, so a fresh clone gets
+# published ports and hot reload with no extra flags -- it used to be gitignored, which
+# meant `docker compose up` on a clean checkout exposed nothing.
+services:
+  redis:
+    ports:
+      - "127.0.0.1:6379:6379"
+  api:
+    ports:
+      - "127.0.0.1:8000:8000"
+    command: uvicorn app.main:sio_asgi_app --host 0.0.0.0 --port 8000 --reload
+    volumes:
+      - ./app:/app/app
+    develop:
+      watch:
+        - action: rebuild
+          path: pyproject.toml
+        - action: rebuild
+          path: uv.lock
+  caddy:
+    # Locally the API is reachable directly on :8000; bring the proxy up on demand with
+    # `docker compose --profile prod-only up caddy` to exercise TLS, headers and limits.
+    profiles: ["prod-only"]

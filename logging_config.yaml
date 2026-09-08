@@ -1,0 +1,49 @@
+version: 1
+disable_existing_loggers: false
+filters:
+  correlation_id:
+    (): asgi_correlation_id.CorrelationIdFilter
+    uuid_length: 32
+    default_value: '-'
+  trace_context:
+    (): app.core.logging.TraceContextFilter
+formatters:
+  simple:
+    format: '[%(levelname)s|%(module)s|L%(lineno)d] %(asctime)s:[%(correlation_id)s][%(otelTraceID)s] %(message)s'
+    datefmt: '%Y-%m-%dT%H:%M:%S%z'
+  json:
+    (): app.core.logging.AppJSONFormatter
+    fmt_keys:
+      level: levelname
+      message: message
+      timestamp: timestamp
+      logger: name
+      module: module
+      function: funcName
+      line: lineno
+      thread_name: threadName
+handlers:
+  stdout:
+    class: logging.StreamHandler
+    formatter: simple
+    stream: ext://sys.stdout
+    level: DEBUG
+  file:
+    class: logging.handlers.RotatingFileHandler
+    level: INFO
+    formatter: json
+    filename: logs/log.jsonl
+    maxBytes: 10000000
+    backupCount: 3
+  queue_handler:
+    class: logging.handlers.QueueHandler
+    filters:
+      - correlation_id
+      - trace_context
+    handlers:
+      - stdout
+      - file
+root:
+  level: INFO
+  handlers:
+    - queue_handler

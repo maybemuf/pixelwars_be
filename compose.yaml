@@ -1,0 +1,55 @@
+services:
+  redis:
+    image: redis:alpine
+    restart: unless-stopped
+    command: redis-server --appendonly yes --maxmemory-policy noeviction
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD-SHELL", "redis-cli ping | grep -q PONG"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+      start_period: 5s
+  api:
+    build: .
+    env_file: .env
+    depends_on:
+      redis:
+        condition: service_healthy
+    restart: unless-stopped
+    volumes:
+      - api_logs:/app/logs
+    healthcheck:
+      test: ["CMD", "python", "-c",
+             "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/health/live', timeout=3)"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+      start_period: 15s
+  otel-lgtm:
+    image: grafana/otel-lgtm:latest
+    restart: unless-stopped
+    # The bundled Grafana answers unauthenticated, so this must never be published on a
+    # public interface -- compose.prod.yaml rebinds it to loopback.
+    ports: ["127.0.0.1:3010:3000"]
+  caddy:
+    build:
+      context: .
+      dockerfile: Caddy.Dockerfile
+    restart: unless-stopped
+    environment:
+      # Caddyfile reads {$SITE_ADDRESS}; without this the variable never leaves .env
+      # and the proxy silently serves on http://localhost whatever you configured.
+      SITE_ADDRESS: ${SITE_ADDRESS:-http://localhost}
+    ports: ["80:80", "443:443"]
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+
+volumes:
+  api_logs:
+  redis_data:
+  caddy_data:
+  caddy_config:
