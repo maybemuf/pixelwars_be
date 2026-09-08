@@ -127,7 +127,7 @@ jobs:
 
           ssh -i ~/.ssh/deploy_key "$SSH_USER@$SSH_HOST" \
             env IMAGE_TAG="$GITHUB_SHA" bash -euo pipefail -s <<'REMOTE'
-          cd /srv/pixelwars/backend
+          cd /srv/pixelwars/
 
           # Only compose.yaml, compose.prod.yaml and the Caddyfile are read from disk;
           # everything else now lives in the image. .env is untracked and survives.
