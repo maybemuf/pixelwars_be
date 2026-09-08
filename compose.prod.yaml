@@ -1,0 +1,25 @@
+# Production overlay. Always pass both files explicitly:
+#
+#   docker compose -f compose.yaml -f compose.prod.yaml up -d
+#
+# Explicit -f is what stops Compose auto-loading compose.override.yaml, which is the
+# development one (hot reload, published dev ports, Caddy switched off).
+#
+# IMAGE_TAG is the commit SHA the CD workflow pushed. Rolling back is re-running the
+# same command with an older SHA -- no rebuild.
+services:
+  redis:
+    ports: !reset null # nothing outside the compose network needs to reach Redis
+
+  api:
+    image: ghcr.io/maybemuf/pixelwars_be/api:${IMAGE_TAG:-latest}
+    build: !reset null
+
+  caddy:
+    image: ghcr.io/maybemuf/pixelwars_be/caddy:${IMAGE_TAG:-latest}
+    build: !reset null
+
+  otel-lgtm:
+    # Loopback only. Reach it through an SSH tunnel:
+    #   ssh -L 3010:127.0.0.1:3010 <user>@<droplet>   then open http://localhost:3010
+    ports: !override ["127.0.0.1:3010:3000"]

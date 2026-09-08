@@ -1,6 +1,7 @@
 services:
   redis:
     image: redis:alpine
+    restart: unless-stopped
     command: redis-server --appendonly yes --maxmemory-policy noeviction
     volumes:
       - redis_data:/data
@@ -28,7 +29,10 @@ services:
       start_period: 15s
   otel-lgtm:
     image: grafana/otel-lgtm:latest
-    ports: ["3010:3000"]
+    restart: unless-stopped
+    # The bundled Grafana answers unauthenticated, so this must never be published on a
+    # public interface -- compose.prod.yaml rebinds it to loopback.
+    ports: ["127.0.0.1:3010:3000"]
   caddy:
     build:
       context: .

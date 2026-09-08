@@ -211,6 +211,86 @@ published ports with no extra flags.
 CI runs lint, format, types and tests, then builds the image and validates the Caddyfile
 in a second job.
 
+## Deployment
+
+A single DigitalOcean droplet. GitHub Actions builds both images, pushes them to GHCR and
+then SSHes in to swap them — nothing is compiled on the droplet, which matters because
+`xcaddy` builds Caddy from Go source and would need ~2 GB of RAM there.
+
+`push` to `main` runs tests → builds and publishes `api` and `caddy` tagged with the
+commit SHA → deploys. The deploy job `needs` both, so a red test never reaches the
+droplet. Other branches and PRs still build the images (a broken Dockerfile fails there,
+not at deploy time) but do not push.
+
+### One-time droplet setup
+
+```bash
+sudo mkdir -p /srv/pixelwars && cd /srv/pixelwars
+sudo git clone -b main https://github.com/maybemuf/pixelwars_be.git backend
+cd backend
+
+cp .env.example .env && $EDITOR .env   # real secrets, ENVIRONMENT=prod,
+                                       # SITE_ADDRESS=https://your.domain
+echo 'COMPOSE_FILE=compose.yaml:compose.prod.yaml' >> .env
+
+docker compose pull && docker compose up -d --wait
+```
+
+`COMPOSE_FILE` in `.env` is what makes a bare `docker compose` on the droplet use the
+production pair. Without it Compose auto-loads `compose.override.yaml` — the development
+one, with hot reload and Caddy switched off.
+
+### GitHub secrets
+
+| Secret | Value |
+|---|---|
+| `DEPLOY_HOST` | droplet IP or hostname |
+| `DEPLOY_USER` | the ssh user that owns `/srv/pixelwars/backend` and can run `docker` |
+| `DEPLOY_SSH_KEY` | private half of a key **generated for this purpose only** |
+| `DEPLOY_KNOWN_HOSTS` | output of `ssh-keyscan <host>`, so a hijacked DNS record cannot collect the key |
+
+```bash
+ssh-keygen -t ed25519 -f deploy_key -N '' -C 'github-actions'
+ssh-copy-id -i deploy_key.pub <user>@<droplet>
+ssh-keyscan <droplet>          # -> DEPLOY_KNOWN_HOSTS
+cat deploy_key                 # -> DEPLOY_SSH_KEY, then delete the local copy
+```
+
+The workflow uses a `production` environment, so you can add a required reviewer or
+restrict it to `main` in **Settings → Environments** if you want a manual gate.
+
+### GHCR visibility
+
+Packages are **private by default even for a public repo**, so the droplet's first
+`docker compose pull` will 401 until you either:
+
+- make them public — **Packages → api → Package settings → Change visibility** (and the
+  same for `caddy`); the images hold no secrets, so this is the simpler option — or
+- `docker login ghcr.io` on the droplet with a PAT that has `read:packages`.
+
+### Rolling back
+
+Images are tagged by commit SHA, so a rollback is a re-run, not a rebuild:
+
+```bash
+cd /srv/pixelwars/backend
+IMAGE_TAG=<older-sha> docker compose up -d --wait
+```
+
+`docker compose up --wait` blocks on the healthchecks in `compose.yaml`, so a container
+that starts and then dies fails the deploy instead of quietly passing it.
+
+### Notes
+
+- Grafana in the bundled `otel-lgtm` answers **unauthenticated**, and it holds your
+  traces, metrics and logs. `compose.prod.yaml` binds it to loopback; reach it with
+  `ssh -L 3010:127.0.0.1:3010 <user>@<droplet>`. Never publish port 3010.
+- The deploy does `git reset --hard origin/main`, because only `compose*.yaml` and the
+  `Caddyfile` are read from disk now. `.env` is untracked and survives; any other local
+  edit on the droplet does not.
+- Set up [`scripts/backup-redis.sh`](scripts/backup-redis.sh) on cron. The droplet's
+  volume is a single copy of the entire product.
+
 ## Project layout
 
 ```
