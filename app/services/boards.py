@@ -29,8 +29,12 @@ async def init_board() -> bool:
     return seeded
 
 
-async def get_board() -> bytes:
-    return base64.b64encode(await redis.get(BOARD_KEY)).decode()
+async def get_board() -> str:
+    """Base64 of the raw bitfield. A missing key means an un-seeded board, not an error:
+    b64encode(None) used to raise TypeError and surface as a 500."""
+    raw = await redis.get(BOARD_KEY) or b""
+    # redis-py types get() as bytes | str; our client leaves decode_responses off.
+    return base64.b64encode(raw if isinstance(raw, bytes) else raw.encode()).decode()
 
 
 async def place_pixel(pixel: PixelPlacement, user_id: str) -> PixelPlacementSuccess | PixelPlacementError:

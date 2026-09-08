@@ -83,10 +83,10 @@ def setup_telemetry(app: FastAPI):
             SERVICE_NAME: "pixelwars-api",
             SERVICE_VERSION: settings.API_VERSION,
             SERVICE_INSTANCE_ID: socket.gethostname(),
-            "deployment.enviroment": settings.ENVIROMENT,
+            "deployment.environment": settings.ENVIRONMENT,
         }
     )
-    is_dev = settings.ENVIROMENT == "dev"
+    is_dev = settings.ENVIRONMENT == "dev"
 
     # Setting up LOGS
     lp = LoggerProvider(resource=resource)

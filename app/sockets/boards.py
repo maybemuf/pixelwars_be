@@ -1,5 +1,6 @@
 from http.cookies import SimpleCookie
 from time import perf_counter
+from typing import Any, NotRequired, TypedDict
 
 import socketio
 from opentelemetry.trace import SpanKind, get_current_span
@@ -22,6 +23,17 @@ from app.schemas.pixel import (
     SetPixelSpanAttributes,
 )
 from app.services import boards_service, users_service
+
+
+class PlacementAttrs(TypedDict):
+    """Span attributes accumulated as a placement progresses; each exit reports whatever
+    it got as far as setting."""
+
+    enduser_id: NotRequired[str]
+    pixel_offset: NotRequired[int]
+    pixel_color: NotRequired[int]
+    cooldown_retry_in_ms: NotRequired[int]
+    stream_entry_id: NotRequired[str]
 
 
 class BoardNamespace(socketio.AsyncNamespace):
@@ -52,16 +64,16 @@ class BoardNamespace(socketio.AsyncNamespace):
     async def on_disconnect(self, sid, reason=None):
         await boards_service.remove_active_user(sid)
         await self._broadcast_users()
-        socket_disconnect_counter.add(1, {"board.id": BOARD_KEY, "reason": reason})
+        socket_disconnect_counter.add(1, {"board.id": BOARD_KEY, "reason": reason or "unknown"})
 
     @tracer.start_as_current_span("sio.boards.place_pixel", kind=SpanKind.SERVER)
     async def on_place_pixel(self, sid, data):
         """The return value is the client's ack."""
         span = get_current_span()
         started = perf_counter()
-        attrs = {}
+        attrs: PlacementAttrs = {}
 
-        def ack(result: PixelResultEnum, response: dict) -> dict:
+        def ack(result: PixelResultEnum, response: dict[str, Any]) -> dict[str, Any]:
             """Every exit records the same three signals — only the result label differs."""
             span.set_attributes(
                 SetPixelSpanAttributes(pixel_result=result, **attrs).model_dump(mode="json", exclude_none=True)

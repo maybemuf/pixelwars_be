@@ -3,6 +3,8 @@ name = "pixelwars_server"
 version = "0.1.0"
 description = "Python FastAPI backend for pixelwars"
 readme = "README.md"
+license = "MIT"
+license-files = ["LICENSE"]
 requires-python = ">=3.13"
 dependencies = [
     "asgi-correlation-id>=5.0.1",
@@ -15,15 +17,23 @@ dependencies = [
     "opentelemetry-instrumentation-logging>=0.65b0",
     "opentelemetry-instrumentation-redis>=0.65b0",
     "opentelemetry-sdk>=1.44.0",
-    "python-socketio[asgi]>=5.16.4",
+    # imported directly by app/core/settings.py and app/schemas/*; they only arrived
+    # transitively via fastapi[standard], which would break us silently if it ever
+    # dropped the extra.
+    "pydantic>=2.12.0",
+    "pydantic-settings>=2.15.0",
+    "python-socketio>=5.16.4",
     "pyyaml>=6.0.3",
     "redis>=8.1.0",
 ]
 
 [dependency-groups]
 dev = [
+    "fakeredis>=2.37.1",
     "pytest>=9.1.1",
     "ruff>=0.9.0",
+    # pre-1.0: diagnostics shift between releases, so pin the minor
+    "ty>=0.0.79,<0.1",
 ]
 
 [tool.setuptools]
@@ -36,13 +46,16 @@ entrypoint = "app.main:app"
 # tests import `app.*`; the repo root isn't on sys.path by default
 pythonpath = ["."]
 
+[tool.ty.environment]
+python-version = "3.13"
+
+[tool.ty.src]
+include = ["app", "tests"]
+
 [tool.ruff]
 target-version = "py313"
 line-length = 120
-# leave auto-generated migrations alone
-extend-exclude = ["alembic/versions", "app/*/__init__.py"]
 
 [tool.ruff.lint]
 # E/F — pyflakes+pycodestyle, I — isort, UP — pyupgrade, B — bugbear
 select = ["E", "F", "I", "UP", "B"]
-# catches dead imports such as `from sqlalchemy.orm import state`

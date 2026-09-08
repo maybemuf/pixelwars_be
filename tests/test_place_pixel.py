@@ -14,10 +14,20 @@ class FakeNamespace(sut.BoardNamespace):
         self._session = session
         self.emitted = []
 
-    async def get_session(self, sid):
+    async def get_session(self, sid, namespace=None):
         return {"session": self._session}
 
-    async def emit(self, event, data=None, **kw):
+    async def emit(
+        self,
+        event,
+        data=None,
+        to=None,
+        room=None,
+        skip_sid=None,
+        namespace=None,
+        callback=None,
+        ignore_queue=False,
+    ):
         self.emitted.append((event, data))
 
 
@@ -105,3 +115,54 @@ class _user:
     """place_pixel only ever reads .id off the user."""
 
     id = "u1"
+
+
+# The tests above stub users_service/boards_service out, so they never exercise the real
+# session lookup or the real bitfield write. These go through both.
+
+
+def test_no_session_cookie_is_unauthenticated(redis, recorded):
+    ns = FakeNamespace(None)
+    ack = run(ns.on_place_pixel("sid", VALID))
+
+    assert ack == {"error": "unauthenticated"}
+    assert recorded["counter"]["result"] == PixelResultEnum.UNAUTHENTICATED
+    assert ns.emitted == [], "an unauthenticated attempt must not reach other clients"
+    assert run(redis.keys("cooldown:*")) == [], "and must not burn a cooldown"
+
+
+def test_expired_session_is_unauthenticated(redis, recorded):
+    """Cookie present, but the session is gone from Redis — the other auth branch."""
+    ns = FakeNamespace("stale-session-id")
+    ack = run(ns.on_place_pixel("sid", VALID))
+
+    assert ack == {"error": "unauthenticated"}
+    assert recorded["counter"]["result"] == PixelResultEnum.UNAUTHENTICATED
+    assert ns.emitted == []
+    assert run(redis.keys("cooldown:*")) == []
+
+
+def test_authenticated_place_pixel_reaches_the_bitfield(redis, session_cookie, recorded):
+    ns = FakeNamespace(session_cookie)
+
+    ack = run(ns.on_place_pixel("sid", VALID))
+
+    assert ack == {"retry_in_ms": 60000}
+    assert ns.emitted[0][0] == "pixel"
+    assert ns.emitted[0][1]["offset"] == 5
+    assert recorded["counter"]["result"] == PixelResultEnum.ACCEPTED
+    # The pixel actually landed in the board, not just in an ack.
+    assert run(redis.bitfield(BOARD_KEY).get("u4", "#5").execute()) == [3]
+
+
+def test_second_pixel_is_cooled_down_and_changes_nothing(redis, session_cookie, recorded):
+    ns = FakeNamespace(session_cookie)
+    run(ns.on_place_pixel("sid", VALID))
+
+    ack = run(ns.on_place_pixel("sid", {"offset": 5, "color": 9}))
+
+    assert ack["error"] == "cooldown"
+    # `counter` keeps the first call (setdefault); `hist` is overwritten, so it is the
+    # one that reflects this second attempt.
+    assert recorded["hist"]["result"] == PixelResultEnum.COOLDOWN
+    assert run(redis.bitfield(BOARD_KEY).get("u4", "#5").execute()) == [3], "still the first colour"

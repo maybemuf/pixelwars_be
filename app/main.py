@@ -27,7 +27,7 @@ async def lifespan(_: FastAPI):
         span.set_attribute("board.created", created)
 
     # The anchor line when reading logs: which build, which env, and when it came up.
-    logger.info("startup complete: env=%s version=%s", settings.ENVIROMENT, settings.API_VERSION)
+    logger.info("startup complete: env=%s version=%s", settings.ENVIRONMENT, settings.API_VERSION)
     yield
     # Its absence is the signal — it tells a graceful stop apart from an OOM kill.
     logger.info("shutdown")
@@ -37,7 +37,50 @@ mgr = AsyncRedisManager(f"redis://{settings.REDIS_HOST}:{settings.REDIS_PORT}")
 sio = AsyncServer(async_mode="asgi", cors_allowed_origins=settings.ALLOWED_ORIGINS, client_manager=mgr)
 sio.register_namespace(BoardNamespace("/boards"))
 
-app = FastAPI(title="PixelWars API", version=settings.API_VERSION, lifespan=lifespan)
+DESCRIPTION = """
+A collaborative pixel canvas: a 1024x1024 shared board where every logged-in user may
+paint one pixel per cooldown window.
+
+The board is a **single Redis `u4` bitfield** -- one nibble per pixel, 16 colours, 512 KiB
+for the whole canvas. `BITFIELD SET` is atomic, so concurrent painters need no locking.
+
+### How a client uses this API
+
+1. `GET /boards` once, to get the whole board as base64.
+2. Connect to the `/boards` Socket.IO namespace for live updates.
+3. `POST /auth/google` to log in -- watching is anonymous, painting is not.
+
+### Socket.IO contract (namespace `/boards`, not covered by OpenAPI)
+
+| Direction | Event | Payload |
+|---|---|---|
+| client -> server | `place_pixel` | `{"offset": int, "color": int}` |
+| ack | *(return value)* | see below |
+| server -> client | `pixel` | `{"offset": int, "color": int, "id": str}` |
+| server -> client | `users` | `{"count": int}` |
+
+`pixel` is broadcast on every accepted placement; `users` fires on each connect and
+disconnect. The `place_pixel` ack is `{"retry_in_ms": int}` when the pixel was painted,
+otherwise `{"error": ...}` where the error is one of `unauthenticated`, `invalid pixel`,
+or `cooldown` -- the last also carries `retry_in_ms`.
+
+`offset` is `y * 1024 + x` and must be `0..1048575`; `color` is a palette index `0..15`.
+"""
+
+TAGS = [
+    {"name": "auth", "description": "Google OAuth login and the session cookie."},
+    {"name": "boards", "description": "The pixel canvas itself."},
+    {"name": "health", "description": "Liveness and readiness probes for the container."},
+]
+
+app = FastAPI(
+    title="PixelWars API",
+    version=settings.API_VERSION,
+    description=DESCRIPTION,
+    openapi_tags=TAGS,
+    license_info={"name": "MIT", "identifier": "MIT"},
+    lifespan=lifespan,
+)
 setup_telemetry(app)
 
 sio_asgi_app = ASGIApp(socketio_server=sio, other_asgi_app=app)

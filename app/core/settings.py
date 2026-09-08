@@ -1,3 +1,4 @@
+from typing import Literal, TypedDict
 from urllib.parse import urlsplit
 
 from pydantic import AnyHttpUrl, Field
@@ -10,7 +11,7 @@ class Settings(BaseSettings):
         env_file_encoding="utf-8",
         extra="ignore",
     )
-    ENVIROMENT: str
+    ENVIRONMENT: str
     SESSION_TTL: int = 60 * 60 * 24 * 14  # 14 days
 
     API_VERSION: str
@@ -39,12 +40,22 @@ class Settings(BaseSettings):
         return [self.FRONTEND_ORIGIN]
 
     def is_production(self) -> bool:
-        return self.ENVIROMENT == "prod"
+        return self.ENVIRONMENT == "prod"
 
 
 settings = Settings()
 
-SESSION_COOKIE = {"httponly": True, "secure": True, "samesite": "none"}
+
+class SessionCookie(TypedDict):
+    """Splatted into both set_cookie and delete_cookie, so the flags cannot drift apart.
+    Typed because these three are the session's entire security contract."""
+
+    httponly: bool
+    secure: bool
+    samesite: Literal["lax", "strict", "none"]
+
+
+SESSION_COOKIE: SessionCookie = {"httponly": True, "secure": True, "samesite": "none"}
 
 BOARD_KEY = "board:main"
 BOARD_OWNAGE_KEY = "board:main:ownage"

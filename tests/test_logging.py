@@ -3,6 +3,7 @@ stopped, so a missing start() means every record is dropped with no error anywhe
 
 import json
 import logging
+import logging.handlers
 
 import pytest
 import yaml
@@ -32,7 +33,10 @@ def test_record_reaches_the_json_sink(log_file):
 
     app_logging.setup_logging()
     logger.info("board initialized: seeded=%s", True)
-    logging.getHandlerByName("queue_handler").listener.stop()  # drains the queue
+    queue_handler = logging.getHandlerByName("queue_handler")
+    assert isinstance(queue_handler, logging.handlers.QueueHandler)
+    assert queue_handler.listener is not None
+    queue_handler.listener.stop()  # drains the queue
 
     entry = json.loads(log_file.read_text().splitlines()[-1])
     assert entry["message"] == "board initialized: seeded=True"

@@ -5,6 +5,7 @@ from fastapi import APIRouter, Response
 from redis.exceptions import RedisError
 
 from app.deps import RedisDep
+from app.schemas import HealthStatus
 
 # A readiness probe that can hang is worse than none: it turns a dead dependency
 # into a stuck request instead of a fast 503.
@@ -23,14 +24,30 @@ router = APIRouter(
 )
 
 
-@router.get("/live")
-async def liveness():
+@router.get(
+    "/live",
+    response_model=HealthStatus,
+    summary="Liveness probe",
+    responses={200: {"description": "The process is running."}},
+)
+async def liveness() -> HealthStatus:
     """Is the process up? Deliberately dependency-free — a failure here means restart me."""
-    return {"status": "ok"}
+    return HealthStatus(status="ok")
 
 
-@router.get("/ready")
-async def readiness(redis: RedisDep, response: Response):
+@router.get(
+    "/ready",
+    response_model=HealthStatus,
+    summary="Readiness probe",
+    responses={
+        200: {"description": "Redis reachable; safe to route traffic here."},
+        503: {
+            "model": HealthStatus,
+            "description": "Redis unreachable or too slow. Board, sessions and presence all live there.",
+        },
+    },
+)
+async def readiness(redis: RedisDep, response: Response) -> HealthStatus:
     """Can we actually serve? Redis holds the board, the sessions and the presence set."""
     global _redis_reachable
 
@@ -42,10 +59,10 @@ async def readiness(redis: RedisDep, response: Response):
             logger.error("readiness failing: redis unreachable (%s)", exc)
             _redis_reachable = False
         response.status_code = 503
-        return {"status": "unavailable", "redis": "down"}
+        return HealthStatus(status="unavailable", redis="down")
 
     if not _redis_reachable:
         logger.info("readiness recovered: redis reachable again")
         _redis_reachable = True
 
-    return {"status": "ok", "redis": "up"}
+    return HealthStatus(status="ok", redis="up")

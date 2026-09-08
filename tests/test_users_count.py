@@ -1,33 +1,18 @@
+"""Presence counting through the namespace handlers. The logic moved to
+boards_service, which reads the module-global redis -- hence the `redis` fixture
+rather than the old patch of a get_redis that no longer exists here."""
+
 import asyncio
 
-from app.sockets import boards
-from app.sockets.boards import BOARD_USERS_KEY, BoardNamespace
+from app.core import BOARD_USERS_KEY
+from app.sockets.boards import BoardNamespace
 
 
-class FakeRedis:
-    """Only the three set ops the counter uses."""
-
-    def __init__(self):
-        self.sets = {}
-
-    async def sadd(self, key, member):
-        self.sets.setdefault(key, set()).add(member)
-
-    async def srem(self, key, member):
-        self.sets.get(key, set()).discard(member)
-
-    async def scard(self, key):
-        return len(self.sets.get(key, ()))
+def test_users_count(redis, monkeypatch):
+    asyncio.run(_run(redis, monkeypatch))
 
 
-def test_users_count(monkeypatch):
-    asyncio.run(_run(monkeypatch))
-
-
-async def _run(monkeypatch):
-    redis = FakeRedis()
-    monkeypatch.setattr(boards, "get_redis", lambda: redis)
-
+async def _run(redis, monkeypatch):
     emitted = []
 
     async def emit(event, data):
@@ -47,4 +32,4 @@ async def _run(monkeypatch):
     await ns.on_disconnect("b")  # duplicate disconnect must not go negative
 
     assert [d["count"] for _, d in emitted] == [1, 2, 2, 1, 1]
-    assert redis.sets[BOARD_USERS_KEY] == {"a"}
+    assert await redis.smembers(BOARD_USERS_KEY) == {b"a"}

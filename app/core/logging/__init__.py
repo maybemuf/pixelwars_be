@@ -1,6 +1,7 @@
 import atexit
 import logging
 import logging.config
+import logging.handlers
 import pathlib
 
 import yaml
@@ -46,8 +47,12 @@ def setup_logging(json_logs: bool = False):
     logging.config.dictConfig(config)
 
     queue_handler = logging.getHandlerByName("queue_handler")
-    if queue_handler is not None:
+    # isinstance, not `is not None`: .listener lives on QueueHandler, not Handler. If the
+    # config ever stops producing one, logging silently drops everything -- which is what
+    # tests/test_logging.py exists to catch.
+    if isinstance(queue_handler, logging.handlers.QueueHandler) and queue_handler.listener is not None:
         queue_handler.listener.start()
         atexit.register(queue_handler.listener.stop)
+
 
 __all__ = ["setup_logging", "AppJSONFormatter", "TraceContextFilter"]

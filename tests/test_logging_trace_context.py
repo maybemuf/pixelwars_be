@@ -18,9 +18,9 @@ def _record() -> logging.LogRecord:
 def test_stamps_placeholders_without_a_span():
     record = _record()
     assert TraceContextFilter().filter(record)
-    assert record.otelTraceID == "0"
-    assert record.otelSpanID == "0"
-    assert record.otelTraceSampled is False
+    assert record.otelTraceID == "0"  # ty: ignore[unresolved-attribute]
+    assert record.otelSpanID == "0"  # ty: ignore[unresolved-attribute]
+    assert record.otelTraceSampled is False  # ty: ignore[unresolved-attribute]
 
 
 def test_stamps_real_ids_inside_a_span():
