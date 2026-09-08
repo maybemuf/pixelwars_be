@@ -92,8 +92,12 @@ jobs:
       # here rather than discovering a typo on the droplet.
       - name: Validate compose files
         run: |
+          # The api service declares env_file: .env, which is gitignored. Standing one up
+          # from the example also proves the example is complete enough for Compose.
+          cp .env.example .env
           docker compose config --quiet
           IMAGE_TAG=ci docker compose -f compose.yaml -f compose.prod.yaml config --quiet
+          rm .env
 
       - name: Validate Caddyfile
         run: |
