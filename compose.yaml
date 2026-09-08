@@ -34,6 +34,10 @@ services:
       context: .
       dockerfile: Caddy.Dockerfile
     restart: unless-stopped
+    environment:
+      # Caddyfile reads {$SITE_ADDRESS}; without this the variable never leaves .env
+      # and the proxy silently serves on http://localhost whatever you configured.
+      SITE_ADDRESS: ${SITE_ADDRESS:-http://localhost}
     ports: ["80:80", "443:443"]
     volumes:
       - ./Caddyfile:/etc/caddy/Caddyfile:ro

@@ -10,4 +10,8 @@ logs/
 # Virtual environments
 .venv
 .env
-compose.override.yaml
+
+# macOS / tool caches
+.DS_Store
+.pytest_cache/
+.ruff_cache/
