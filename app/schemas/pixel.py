@@ -31,11 +31,13 @@ class PixelPlacementSuccess(PixelPlacementResult):
 class PixelPlacementError(PixelPlacementResult):
     pass
 
+
 class PixelResultEnum(StrEnum):
     ACCEPTED = "accepted"
     COOLDOWN = "cooldown"
     INVALID = "invalid"
     UNAUTHENTICATED = "unauthenticated"
+
 
 class SetPixelSpanAttributes(BaseModel):
     model_config = ConfigDict(
@@ -43,7 +45,7 @@ class SetPixelSpanAttributes(BaseModel):
         populate_by_name=True,
         serialize_by_alias=True,
     )
-    board_id: str=BOARD_KEY
+    board_id: str = BOARD_KEY
     pixel_offset: int | None = None
     pixel_color: int | None = None
     pixel_result: PixelResultEnum

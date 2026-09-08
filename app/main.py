@@ -32,6 +32,7 @@ async def lifespan(_: FastAPI):
     # Its absence is the signal — it tells a graceful stop apart from an OOM kill.
     logger.info("shutdown")
 
+
 mgr = AsyncRedisManager(f"redis://{settings.REDIS_HOST}:{settings.REDIS_PORT}")
 sio = AsyncServer(async_mode="asgi", cors_allowed_origins=settings.ALLOWED_ORIGINS, client_manager=mgr)
 sio.register_namespace(BoardNamespace("/boards"))

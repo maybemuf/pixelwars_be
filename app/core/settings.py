@@ -33,13 +33,14 @@ class Settings(BaseSettings):
         """scheme://host:port — what a browser puts in the Origin header."""
         url = urlsplit(str(self.FRONTEND_URL))
         return f"{url.scheme}://{url.netloc}"
-    
+
     @property
     def ALLOWED_ORIGINS(self) -> list[str]:
         return [self.FRONTEND_ORIGIN]
-    
+
     def is_production(self) -> bool:
         return self.ENVIROMENT == "prod"
+
 
 settings = Settings()
 

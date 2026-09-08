@@ -92,9 +92,7 @@ def test_accepted(monkeypatch, recorded):
 
 
 def test_span_attributes_are_dotted_and_drop_nones():
-    dumped = sut.SetPixelSpanAttributes(pixel_result=PixelResultEnum.INVALID).model_dump(
-        mode="json", exclude_none=True
-    )
+    dumped = sut.SetPixelSpanAttributes(pixel_result=PixelResultEnum.INVALID).model_dump(mode="json", exclude_none=True)
     # OTel rejects None values, and every key must be dotted, not snake_case.
     assert dumped == {"board.id": BOARD_KEY, "pixel.result": "invalid"}
 
