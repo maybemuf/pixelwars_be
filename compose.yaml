@@ -36,7 +36,9 @@ services:
     image: grafana/otel-lgtm:latest
     ports: ["3010:3000"]
   caddy:
-    image: caddy:alpine
+    build:
+      context: .
+      dockerfile: Caddy.Dockerfile
     restart: unless-stopped
     ports: ["80:80", "443:443"]
     volumes:

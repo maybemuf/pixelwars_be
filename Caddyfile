@@ -1,3 +1,15 @@
-pixelwars-api.duckdns.org {
+{
+	order rate_limit before basic_auth
+}
+
+http://pixelwars-api.duckdns.org {
+	rate_limit {
+		zone dynamic_zone {
+			key {http.request.remote_ip}
+			events 3
+			window 5s
+		}
+	}
+
 	reverse_proxy api:8000
 }
