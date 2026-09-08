@@ -88,6 +88,13 @@ jobs:
           cache-from: type=gha,scope=caddy
           cache-to: type=gha,mode=max,scope=caddy
 
+      # compose.prod.yaml is only exercised at deploy time, so validate both overlays
+      # here rather than discovering a typo on the droplet.
+      - name: Validate compose files
+        run: |
+          docker compose config --quiet
+          IMAGE_TAG=ci docker compose -f compose.yaml -f compose.prod.yaml config --quiet
+
       - name: Validate Caddyfile
         run: |
           docker build -f Caddy.Dockerfile -t caddy-local .

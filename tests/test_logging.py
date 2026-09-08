@@ -43,3 +43,19 @@ def test_record_reaches_the_json_sink(log_file):
     assert entry["logger"] == "service.test"
     assert entry["otelTraceID"] == "0"  # injected even with OTEL disabled
     assert entry["correlation_id"] == "-"
+
+
+def test_creates_a_missing_log_directory(tmp_path, monkeypatch):
+    """logs/ is gitignored, so a fresh checkout has none and the file handler cannot
+    make its own -- dictConfig used to die with "Unable to configure handler 'file'"."""
+    config = yaml.safe_load(app_logging.CONFIG_FILE.read_text())
+    target = tmp_path / "does" / "not" / "exist" / "log.jsonl"
+    config["handlers"]["file"]["filename"] = str(target)
+
+    cfg_file = tmp_path / "logging_config.yaml"
+    cfg_file.write_text(yaml.safe_dump(config))
+    monkeypatch.setattr(app_logging, "CONFIG_FILE", cfg_file)
+
+    app_logging.setup_logging()
+
+    assert target.parent.is_dir()

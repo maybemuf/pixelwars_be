@@ -13,6 +13,13 @@ repos:
       - id: end-of-file-fixer
       - id: trailing-whitespace
       - id: check-yaml
+        exclude: ^compose\.prod\.yaml$
+      - id: check-yaml
+        # Compose's !reset / !override tags have no constructor, so this one gets a
+        # syntax-only load. `docker compose config` in CI is its real validator.
+        name: check-yaml (compose overlay)
+        args: [--unsafe]
+        files: ^compose\.prod\.yaml$
       - id: check-added-large-files
       - id: detect-private-key
 

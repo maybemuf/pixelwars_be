@@ -44,6 +44,14 @@ def setup_logging(json_logs: bool = False):
     if json_logs:
         config["handlers"]["stdout"]["formatter"] = "json"
 
+    # The file handlers won't create their own parent directory, and logs/ is gitignored,
+    # so a fresh checkout has none -- dictConfig then dies with an unhelpful
+    # "Unable to configure handler 'file'". Derived from the config rather than
+    # hardcoded, so adding a handler elsewhere cannot reintroduce this.
+    for handler in config.get("handlers", {}).values():
+        if filename := handler.get("filename"):
+            pathlib.Path(filename).parent.mkdir(parents=True, exist_ok=True)
+
     logging.config.dictConfig(config)
 
     queue_handler = logging.getHandlerByName("queue_handler")
