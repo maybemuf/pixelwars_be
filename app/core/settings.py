@@ -43,6 +43,8 @@ class Settings(BaseSettings):
 
 settings = Settings()
 
+SESSION_COOKIE = {"httponly": True, "secure": True, "samesite": "none"}
+
 BOARD_KEY = "board:main"
 BOARD_OWNAGE_KEY = "board:main:ownage"
 BOARD_USERS_KEY = "board:main:users"

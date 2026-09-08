@@ -2,12 +2,21 @@
 	order rate_limit before basic_auth
 }
 
-http://pixelwars-api.duckdns.org {
+{$SITE_ADDRESS:http://localhost} {
+	header {
+		Strict-Transport-Security "max-age=31536000; includeSubDomains"
+		X-Content-Type-Options nosniff
+		Referrer-Policy strict-origin-when-cross-origin
+		X-Frame-Options DENY
+		Content-Security-Policy "default-src 'none'; frame-ancestors 'none'"
+		-Server
+	}
+
 	rate_limit {
 		zone dynamic_zone {
 			key {http.request.remote_ip}
-			events 3
-			window 5s
+			events 30
+			window 15s
 		}
 	}
 
